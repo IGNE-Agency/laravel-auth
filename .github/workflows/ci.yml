@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    name: PHP 8.4 (${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dependencies: [prefer-lowest, prefer-stable]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --${{ matrix.dependencies }} --prefer-dist --no-interaction
+
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: Larastan
+        run: composer analyse
+
+      - name: Pest
+        run: composer test
