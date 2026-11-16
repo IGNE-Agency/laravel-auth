@@ -13,7 +13,7 @@ describe('absolute lifetime', function (): void {
         $this->travel(61)->minutes();
         $response = $this->withToken($token)->getJson('/api/user');
 
-        $response->assertUnauthorized();
+        $response->assertUnauthorized()->assertMatchesOpenApi('authentication.user');
     });
 
     it('keeps a token without an expiry when expires_in_minutes is null', function (): void {
@@ -26,8 +26,8 @@ describe('absolute lifetime', function (): void {
         $this->travel(2)->years();
         $response = $this->withToken($loginResponse->json('token'))->getJson('/api/user');
 
-        $loginResponse->assertJson(['expires_at' => null]);
-        $response->assertOk();
+        $loginResponse->assertOk()->assertJson(['expires_at' => null])->assertMatchesOpenApi('authentication.login');
+        $response->assertOk()->assertMatchesOpenApi('authentication.user');
     });
 });
 
@@ -44,20 +44,20 @@ describe('idle lifetime', function (): void {
         $this->travel(121)->minutes();
         $response = $this->withToken($token)->getJson('/api/user');
 
-        $response->assertUnauthorized();
+        $response->assertUnauthorized()->assertMatchesOpenApi('authentication.user');
     });
 
     it('keeps a token that is used within idle_expires_in_minutes', function (): void {
         config(['authentication.tokens.idle_expires_in_minutes' => 120]);
         $token = $this->loginForToken(User::factory()->create());
         $this->travel(100)->minutes();
-        $this->withToken($token)->getJson('/api/user')->assertOk();
+        $this->withToken($token)->getJson('/api/user')->assertOk()->assertMatchesOpenApi('authentication.user');
         $this->forgetAuthenticatedUsers();
 
         $this->travel(100)->minutes();
         $response = $this->withToken($token)->getJson('/api/user');
 
-        $response->assertOk();
+        $response->assertOk()->assertMatchesOpenApi('authentication.user');
     });
 
     it('has no idle limit when idle_expires_in_minutes is null', function (): void {
@@ -67,6 +67,6 @@ describe('idle lifetime', function (): void {
         $this->travel(1)->years();
         $response = $this->withToken($token)->getJson('/api/user');
 
-        $response->assertOk();
+        $response->assertOk()->assertMatchesOpenApi('authentication.user');
     });
 });

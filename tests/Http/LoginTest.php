@@ -14,7 +14,7 @@ describe('session mode', function (): void {
 
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertOk()->assertExactJson(['two_factor' => false]);
+        $response->assertOk()->assertExactJson(['two_factor' => false])->assertMatchesOpenApi('authentication.login');
         $this->assertAuthenticatedAs($user, 'web');
         expect(PersonalAccessToken::count())->toBe(0);
     });
@@ -24,7 +24,7 @@ describe('session mode', function (): void {
 
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'These credentials do not match our records.']);
+        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'These credentials do not match our records.'])->assertMatchesOpenApi('authentication.login');
         $this->assertGuest('web');
     });
 
@@ -33,24 +33,24 @@ describe('session mode', function (): void {
         $user = User::factory()->create();
 
         foreach (range(1, 5) as $attempt) {
-            $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong'])->assertUnprocessable();
+            $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong'])->assertUnprocessable()->assertMatchesOpenApi('authentication.login');
         }
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertTooManyRequests();
+        $response->assertTooManyRequests()->assertMatchesOpenApi('authentication.login');
         Event::assertDispatchedTimes(Lockout::class, 1);
         $this->assertGuest('web');
     });
 
     it('invalidates the session on logout', function (): void {
         $user = User::factory()->create();
-        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
+        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
 
         $response = $this->fromSpa()->postJson('/api/auth/logout');
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.logout');
         $this->forgetAuthenticatedUsers();
-        $this->fromSpa()->getJson('/api/user')->assertUnauthorized();
+        $this->fromSpa()->getJson('/api/user')->assertUnauthorized()->assertMatchesOpenApi('authentication.user');
     });
 });
 
@@ -63,7 +63,8 @@ describe('token mode', function (): void {
 
         $response->assertOk()
             ->assertJson(['two_factor' => false, 'expires_at' => now()->addDays(30)->toJSON()])
-            ->assertJsonStructure(['two_factor', 'token', 'expires_at']);
+            ->assertJsonStructure(['two_factor', 'token', 'expires_at'])
+            ->assertMatchesOpenApi('authentication.login');
         expect($response->headers->getCookies())->toBe([])
             ->and($user->tokens()->count())->toBe(1);
     });
@@ -71,7 +72,7 @@ describe('token mode', function (): void {
     it('ignores remember', function (): void {
         $user = User::factory()->create();
 
-        $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password', 'remember' => true])->assertOk();
+        $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password', 'remember' => true])->assertOk()->assertMatchesOpenApi('authentication.login');
 
         expect($user->fresh()->getAttribute('remember_token'))->toBeNull();
     });
@@ -80,7 +81,7 @@ describe('token mode', function (): void {
         $user = User::factory()->create();
 
         $this->loginForToken($user, input: ['device_name' => 'Ada’s phone']);
-        $this->withHeader('User-Agent', 'TestBrowser/1.0')->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
+        $this->withHeader('User-Agent', 'TestBrowser/1.0')->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
 
         expect($user->tokens()->orderBy('id')->pluck('name')->all())->toBe(['Ada’s phone', 'TestBrowser/1.0']);
     });
@@ -89,11 +90,11 @@ describe('token mode', function (): void {
         $user = User::factory()->create();
         $token = $this->loginForToken($user);
 
-        $this->getJson('/api/user')->assertUnauthorized();
+        $this->getJson('/api/user')->assertUnauthorized()->assertMatchesOpenApi('authentication.user');
         $this->forgetAuthenticatedUsers();
         $response = $this->withToken($token)->getJson('/api/user');
 
-        $response->assertOk()->assertJson(['id' => $user->id]);
+        $response->assertOk()->assertJson(['id' => $user->id])->assertMatchesOpenApi('authentication.user');
         expect(auth('sanctum')->user()->currentAccessToken())->toBeInstanceOf(PersonalAccessToken::class);
     });
 
@@ -105,11 +106,11 @@ describe('token mode', function (): void {
 
         $response = $this->withToken($currentToken)->postJson('/api/auth/logout');
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.logout');
         $this->forgetAuthenticatedUsers();
-        $this->withToken($currentToken)->getJson('/api/user')->assertUnauthorized();
+        $this->withToken($currentToken)->getJson('/api/user')->assertUnauthorized()->assertMatchesOpenApi('authentication.user');
         $this->forgetAuthenticatedUsers();
-        $this->withToken($otherToken)->getJson('/api/user')->assertOk();
+        $this->withToken($otherToken)->getJson('/api/user')->assertOk()->assertMatchesOpenApi('authentication.user');
         Event::assertDispatched(AccessTokenRevoked::class, fn (AccessTokenRevoked $event): bool => $event->user->is($user) && $event->reason === 'logout');
     });
 });
@@ -119,7 +120,7 @@ it('does not log in a user without a password, whatever password is sent', funct
 
     $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $password]);
 
-    $response->assertUnprocessable()->assertJsonValidationErrorFor($invalidField);
+    $response->assertUnprocessable()->assertJsonValidationErrorFor($invalidField)->assertMatchesOpenApi('authentication.login');
     expect($user->tokens()->count())->toBe(0);
 })->with([
     'any password' => ['password', 'email'],

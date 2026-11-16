@@ -7,6 +7,7 @@ use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Testing\TestResponse;
 
 describe('forgot password', function (): void {
     it('answers the same success for a password user, an unknown email and a passwordless user', function (): void {
@@ -15,9 +16,9 @@ describe('forgot password', function (): void {
         $passwordlessUser = User::factory()->withoutPassword()->create();
 
         $responses = collect([$passwordUser->email, 'nobody@example.com', $passwordlessUser->email])
-            ->map(fn (string $email) => $this->postJson('/api/auth/forgot-password', ['email' => $email]));
+            ->map(fn (string $email): TestResponse => $this->postJson('/api/auth/forgot-password', ['email' => $email]));
 
-        $responses->each(fn ($response) => $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.']));
+        $responses->each(fn (TestResponse $response): TestResponse => $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.'])->assertMatchesOpenApi('authentication.password.email'));
         Notification::assertSentToTimes($passwordUser, ResetPasswordNotification::class, 1);
         Notification::assertNotSentTo($passwordlessUser, ResetPasswordNotification::class);
     });
@@ -25,11 +26,11 @@ describe('forgot password', function (): void {
     it('answers the same success when a password user asks again too soon', function (): void {
         Notification::fake();
         $user = User::factory()->create();
-        $this->postJson('/api/auth/forgot-password', ['email' => $user->email])->assertOk();
+        $this->postJson('/api/auth/forgot-password', ['email' => $user->email])->assertOk()->assertMatchesOpenApi('authentication.password.email');
 
         $response = $this->postJson('/api/auth/forgot-password', ['email' => $user->email]);
 
-        $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.']);
+        $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.'])->assertMatchesOpenApi('authentication.password.email');
         Notification::assertSentToTimes($user, ResetPasswordNotification::class, 1);
     });
 
@@ -38,7 +39,7 @@ describe('forgot password', function (): void {
 
         $response = $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
+        $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.password.email');
         Notification::assertNothingSent();
     });
 
@@ -46,11 +47,11 @@ describe('forgot password', function (): void {
         Notification::fake();
 
         foreach (range(1, 3) as $request) {
-            $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com'])->assertOk();
+            $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com'])->assertOk()->assertMatchesOpenApi('authentication.password.email');
         }
         $response = $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com']);
 
-        $response->assertTooManyRequests();
+        $response->assertTooManyRequests()->assertMatchesOpenApi('authentication.password.email');
     });
 });
 
@@ -66,7 +67,7 @@ describe('reset password', function (): void {
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertOk()->assertExactJson(['message' => 'Your password has been reset.']);
+        $response->assertOk()->assertExactJson(['message' => 'Your password has been reset.'])->assertMatchesOpenApi('authentication.password.update');
         expect(Hash::check('new-password', $user->fresh()->password))->toBeTrue();
     });
 
@@ -80,7 +81,7 @@ describe('reset password', function (): void {
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'This password reset token is invalid.']);
+        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'This password reset token is invalid.'])->assertMatchesOpenApi('authentication.password.update');
         expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
     });
 });

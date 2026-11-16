@@ -10,13 +10,13 @@ it('returns the authenticated user without a wrapper', function (): void {
 
     $response = $this->withToken($token)->getJson('/api/user');
 
-    $response->assertOk()->assertExactJson(['id' => $user->id, 'email' => 'ada@example.com']);
+    $response->assertOk()->assertExactJson(['id' => $user->id, 'email' => 'ada@example.com'])->assertMatchesOpenApi('authentication.user');
 });
 
 it('answers a guest with a JSON 401, even without an Accept header', function (): void {
     $response = $this->get('/api/user');
 
-    $response->assertUnauthorized()->assertExactJson(['message' => 'Unauthenticated.']);
+    $response->assertUnauthorized()->assertExactJson(['message' => 'Unauthenticated.'])->assertMatchesOpenApi('authentication.user');
 });
 
 it('answers a failed login with JSON, even without an Accept header', function (): void {
@@ -24,5 +24,5 @@ it('answers a failed login with JSON, even without an Accept header', function (
 
     $response = $this->post('/api/auth/login', ['email' => $user->email, 'password' => 'wrong']);
 
-    $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
+    $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.login');
 });

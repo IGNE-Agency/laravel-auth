@@ -51,7 +51,7 @@ it('rehashes a password hashed with outdated settings on login', function (): vo
     config(['hashing.bcrypt.rounds' => 5]);
     Hash::forgetDrivers();
 
-    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
+    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
 
     expect(password_get_info($user->fresh()->password)['options']['cost'])->toBe(5);
 });

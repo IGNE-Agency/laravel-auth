@@ -102,6 +102,7 @@ abstract class TestCase extends Orchestra
     {
         $token = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $password, ...$input])
             ->assertOk()
+            ->assertMatchesOpenApi('authentication.login')
             ->json('token');
 
         $this->forgetAuthenticatedUsers();
