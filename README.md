@@ -40,10 +40,7 @@ Fortify and Sanctum give the building blocks, not a finished login API. Without 
 
 ## Install
 
-The package is not on Packagist, so add its repository first:
-
 ```bash
-composer config repositories.igne-laravel-auth vcs https://github.com/IGNE-Agency/laravel-auth
 composer require igne-agency/laravel-auth
 php artisan vendor:publish --tag=authentication-config
 php artisan vendor:publish --tag=authentication-migrations
