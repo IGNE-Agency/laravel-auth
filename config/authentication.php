@@ -10,6 +10,8 @@ use Igne\Auth\LoginCodes\Generators\NumericLoginCodeGenerator;
 use Igne\Auth\LoginCodes\Models\LoginCode;
 use Igne\Auth\LoginCodes\Notifications\LoginCodeNotification;
 use Igne\Auth\Tokens\SanctumAccessTokenIssuer;
+use Igne\Auth\TwoFactor\Models\TrustedDevice;
+use Igne\Auth\TwoFactor\Notifications\TwoFactorAuthenticationResetNotification;
 
 return [
 
@@ -91,6 +93,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Two-factor authentication
+    |--------------------------------------------------------------------------
+    |
+    | Users that implement TwoFactorAuthenticatable get Fortify's TOTP
+    | two-factor authentication, asked again per device. With "required", users
+    | must set it up before they can use the app ("two_factor_setup_required"),
+    | and a logged-in user on a device that did not pass the challenge gets
+    | "two_factor_required" on every route in the "web" and "api" groups.
+    |
+    | "device_trust" sets how long a device stays trusted after the challenge:
+    | without "remember_device", "session" (the cookie session or the access
+    | token) or a number of days (1-365); with it, "remember_expires_in_days".
+    | "extend_on_use" extends the expiry on every use, but never past 365 days
+    | after the last challenge. A trusted device sends its device token back
+    | as the "cookie" (session mode) or the "header" (token mode).
+    |
+    | "except" lists route names or URI patterns that skip every check, and
+    | "except_setup" those that only skip the setup check.
+    |
+    */
+
+    'two_factor' => [
+        'required' => true,
+        'device_trust' => [
+            'expires_in_days' => 'session',
+            'remember_expires_in_days' => 30,
+            'extend_on_use' => false,
+            'cookie' => 'two_factor_device',
+            'header' => 'X-Two-Factor-Device',
+        ],
+        'except' => [],
+        'except_setup' => [],
+        'reset_notification' => TwoFactorAuthenticationResetNotification::class,
+        'model' => TrustedDevice::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Access tokens
     |--------------------------------------------------------------------------
     |
@@ -162,8 +202,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | When enabled, the package schedules "sanctum:prune-expired --hours=24"
-    | and "model:prune" for its prunable models (the login code model) to run
-    | daily.
+    | and "model:prune" for its prunable models (the login code and trusted
+    | device models) to run daily.
     |
     */
 

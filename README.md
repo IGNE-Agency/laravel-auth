@@ -28,7 +28,8 @@ Then:
 - set `views` to `false` in `config/fortify.php`;
 - call `$middleware->statefulApi()` in `bootstrap/app.php`;
 - let the authenticatable model (usually `User`) implement `Igne\Auth\Authentication\Contracts\PasswordAuthenticatable` with the `AuthenticatesWithPassword` trait, and use Sanctum's `HasApiTokens`;
-- for login codes, let it also implement `Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable` with the `AuthenticatesWithLoginCode` trait.
+- for login codes, let it also implement `Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable` with the `AuthenticatesWithLoginCode` trait;
+- for two-factor authentication, enable Fortify's `twoFactorAuthentication` feature, and let it implement `Igne\Auth\TwoFactor\Contracts\TwoFactorAuthenticatable` with the package's `InteractsWithTwoFactorAuthentication` trait, which includes Fortify's `TwoFactorAuthenticatable` trait.
 
 ## Login codes
 
@@ -36,9 +37,17 @@ Users that implement `LoginCodeAuthenticatable` can log in with an emailed one-t
 
 The request route always answers 202 with the same body, also for unknown addresses and when it is rate-limited, so it never reveals whether an account exists. Only an HMAC of a code is stored (keyed with the app key; codes made under a key in `app.previous_keys` keep working). A code expires, works once and takes a few wrong attempts; a user's wrong attempts across codes are rate-limited too, and a new code does not reset that.
 
-Logged-in users confirm their identity (Fortify's confirm-password route and `password.confirm` middleware) with the strongest factor they have: their password, or else an emailed code from `POST user/confirm-password/code`. `GET user` tells which one in `confirmation_method`.
+Logged-in users confirm their identity (Fortify's confirm-password route and `password.confirm` middleware) with the strongest factor they have: their password, else a code from their authenticator app, or else an emailed code from `POST user/confirm-password/code`. `GET user` tells which one in `confirmation_method`.
 
 The mail is `Igne\Auth\LoginCodes\Notifications\LoginCodeNotification`, a queued `MailMessage`. Swap it in `login_codes.notification` for a notification with the same constructor (`string $code, CarbonInterface $expiresAt, ?string $url, LoginCodePurpose $purpose`). With `login_codes.link_url` set, the login mail also links to that frontend page, with the `{email}` and `{code}` placeholders filled in; the page posts the code to the login route.
+
+## Two-factor authentication
+
+Users that implement `TwoFactorAuthenticatable` get Fortify's TOTP two-factor authentication, asked again per device. The login answers `"two_factor": true` (plus a `challenge` id in token mode, for the `X-Auth-Challenge` header) and the client passes `POST auth/two-factor-challenge` next. A remembered device skips the challenge: its device token comes back as the `two_factor_device` cookie (session mode) or as `device_token` for the `X-Two-Factor-Device` header (token mode). `two_factor.device_trust` sets how long a device stays trusted, never more than 365 days after its last challenge.
+
+`EnsureTwoFactorAuthenticated` runs in the `web` and `api` groups, right after authentication. With `two_factor.required`, a user without two-factor authentication gets 403 `two_factor_setup_required`; a user on a device that did not pass the challenge gets 403 `two_factor_required` and steps up on the challenge route with their session or access token. List routes that skip the checks in `two_factor.except` and `two_factor.except_setup`, or call `->withoutMiddleware()`. `TwoFactorEnforcement::respondUsing()` registers a responder for screens of your own; with Nova installed, Nova's login, challenge and User Security screens handle it.
+
+`php artisan authentication:two-factor:reset {user}` (and the Nova action `Igne\Auth\Nova\Actions\ResetTwoFactorAuthentication`, behind the `resetTwoFactorAuthentication` gate) resets the two-factor authentication of a user who lost their authenticator, logs them out everywhere and sends `two_factor.reset_notification`.
 
 ## Routes
 
@@ -49,6 +58,7 @@ With the default prefix `api`:
 | POST | `auth/login` | `authentication.login` |
 | POST | `auth/logout` | `authentication.logout` |
 | POST | `auth/login-code` | `authentication.login-code` |
+| POST | `auth/two-factor-challenge` | `authentication.two-factor.challenge` |
 | POST | `auth/forgot-password` | `authentication.password.email` |
 | POST | `auth/reset-password` | `authentication.password.update` |
 | GET | `user` | `authentication.user` |
@@ -56,8 +66,12 @@ With the default prefix `api`:
 | POST | `user/confirm-password` | `authentication.password.confirm.store` |
 | GET | `user/confirmed-password-status` | `authentication.password.confirmation` |
 | POST | `user/confirm-password/code` | `authentication.password.confirm.code` |
+| POST, DELETE | `user/two-factor-authentication` | `authentication.two-factor.enable`, `.disable` |
+| POST | `user/confirmed-two-factor-authentication` | `authentication.two-factor.confirm` |
+| GET | `user/two-factor-qr-code`, `user/two-factor-secret-key` | `authentication.two-factor.qr-code`, `.secret-key` |
+| GET, POST | `user/two-factor-recovery-codes` | `authentication.two-factor.recovery-codes`, `.regenerate-recovery-codes` |
 
-The password routes follow Fortify's `resetPasswords` and `updatePasswords` features. They run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
+The password routes follow Fortify's `resetPasswords` and `updatePasswords` features, and the two-factor routes its `twoFactorAuthentication` feature. The password reset and change routes run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
 
 ## OpenAPI
 

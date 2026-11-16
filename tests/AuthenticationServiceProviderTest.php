@@ -5,12 +5,17 @@ declare(strict_types=1);
 use Igne\Auth\AuthenticationServiceProvider;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
+use Igne\Auth\Http\Responses\TwoFactorLoginResponse;
 use Igne\Auth\LoginCodes\Models\LoginCode;
+use Igne\Auth\TwoFactor\Models\TrustedDevice;
+use Igne\Auth\TwoFactor\RedirectIfTwoFactorAuthenticatable;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
+use Laravel\Fortify\Contracts\RedirectsIfTwoFactorAuthenticatable;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
 
 it('is registered with the app', function (): void {
     expect(app()->providerIsLoaded(AuthenticationServiceProvider::class))->toBeTrue();
@@ -32,7 +37,9 @@ it('publishes its config under the authentication-config tag', function (): void
 
 it('binds its responses although Fortify registers after the package', function (): void {
     expect(app(LoginResponseContract::class))->toBeInstanceOf(LoginResponse::class)
-        ->and(app(LogoutResponseContract::class))->toBeInstanceOf(LogoutResponse::class);
+        ->and(app(LogoutResponseContract::class))->toBeInstanceOf(LogoutResponse::class)
+        ->and(app(TwoFactorLoginResponseContract::class))->toBeInstanceOf(TwoFactorLoginResponse::class)
+        ->and(app(RedirectsIfTwoFactorAuthenticatable::class))->toBeInstanceOf(RedirectIfTwoFactorAuthenticatable::class);
 });
 
 it('prunes expired Sanctum tokens daily', function (): void {
@@ -43,12 +50,13 @@ it('prunes expired Sanctum tokens daily', function (): void {
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 
-it('prunes login codes daily', function (): void {
+it('prunes login codes and trusted devices daily', function (): void {
     $events = collect(app(Schedule::class)->events())
         ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'model:prune'));
 
     expect($events)->toHaveCount(1)
         ->and($events->first()->command)->toContain(escapeshellarg(LoginCode::class))
+        ->and($events->first()->command)->toContain(escapeshellarg(TrustedDevice::class))
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 

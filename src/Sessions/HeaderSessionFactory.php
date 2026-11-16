@@ -6,6 +6,7 @@ namespace Igne\Auth\Sessions;
 
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
+use Illuminate\Contracts\Session\Session;
 use Illuminate\Http\Request;
 use Illuminate\Session\Store;
 use Illuminate\Support\Arr;
@@ -20,6 +21,12 @@ use Illuminate\Support\Arr;
  */
 final class HeaderSessionFactory
 {
+    /**
+     * The name of every header session, which tells it apart from a cookie
+     * session.
+     */
+    public const string SESSION_NAME = 'authentication_header_session';
+
     public function __construct(
         private readonly CacheFactory $cache,
         private readonly Repository $config,
@@ -42,6 +49,14 @@ final class HeaderSessionFactory
             is_string($challengeId) ? $challengeId : null,
             $this->minutes('challenge_lifetime_minutes'),
         );
+    }
+
+    /**
+     * Determine whether the session is a header session.
+     */
+    public static function isHeaderSession(Session $session): bool
+    {
+        return $session->getName() === self::SESSION_NAME;
     }
 
     /**
@@ -87,7 +102,7 @@ final class HeaderSessionFactory
         $store = $this->config->get('authentication.header_sessions.cache_store');
 
         return new Store(
-            'authentication_header_session',
+            self::SESSION_NAME,
             new HeaderSessionHandler($this->cache->store(is_string($store) ? $store : null), $minutes),
             $id,
         );

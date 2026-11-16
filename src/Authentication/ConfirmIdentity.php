@@ -9,8 +9,11 @@ use Igne\Auth\LoginCodes\Actions\ConsumeLoginCodeAction;
 use Igne\Auth\LoginCodes\ConsumeLoginCodeResult;
 use Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable;
 use Igne\Auth\LoginCodes\LoginCodePurpose;
+use Igne\Auth\TwoFactor\Contracts\TwoFactorAuthenticatable;
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Container\Container;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
+use Laravel\Fortify\Fortify;
 use LogicException;
 use SensitiveParameter;
 
@@ -19,8 +22,9 @@ use SensitiveParameter;
  * registered with Fortify::confirmPasswordsUsing(), so Fortify's
  * confirm-password route and "password.confirm" middleware use it.
  *
- * The user confirms with the strongest factor they have: their password, or
- * else an emailed confirmation code, sent in the "password" field.
+ * The user confirms with the strongest factor they have, sent in the
+ * "password" field: their password, else a code from their authenticator app
+ * when they have two-factor authentication, else an emailed confirmation code.
  */
 final class ConfirmIdentity
 {
@@ -28,6 +32,7 @@ final class ConfirmIdentity
         private readonly UserProviderResolver $users,
         private readonly Repository $config,
         private readonly Container $container,
+        private readonly TwoFactorAuthenticationProvider $twoFactor,
     ) {}
 
     public function __invoke(mixed $user, #[SensitiveParameter] ?string $password = null): bool
@@ -38,6 +43,7 @@ final class ConfirmIdentity
 
         return match ($this->methodFor($user)) {
             AuthenticationMethod::Password => $user instanceof PasswordAuthenticatable && $this->users->resolve()->validateCredentials($user, ['password' => $password]),
+            AuthenticationMethod::Totp => $user instanceof TwoFactorAuthenticatable && $this->verifyTwoFactorCode($user, $password),
             AuthenticationMethod::LoginCode => $user instanceof LoginCodeAuthenticatable && $this->consumeConfirmationCode($user, $password),
             default => false,
         };
@@ -53,11 +59,30 @@ final class ConfirmIdentity
             return AuthenticationMethod::Password;
         }
 
+        if ($user instanceof TwoFactorAuthenticatable && $user->hasEnabledTwoFactorAuthentication()) {
+            return AuthenticationMethod::Totp;
+        }
+
         if ($user instanceof LoginCodeAuthenticatable && $user->canAuthenticateWithLoginCode()) {
             return AuthenticationMethod::LoginCode;
         }
 
         return null;
+    }
+
+    /**
+     * Verify a code from the user's authenticator app, with Fortify's provider
+     * (which rejects a code that was used before).
+     */
+    private function verifyTwoFactorCode(TwoFactorAuthenticatable $user, #[SensitiveParameter] string $code): bool
+    {
+        $secret = data_get($user, 'two_factor_secret');
+
+        if (! is_string($secret) || $secret === '') {
+            return false;
+        }
+
+        return (bool) $this->twoFactor->verify(Fortify::currentEncrypter()->decrypt($secret), $code);
     }
 
     private function consumeConfirmationCode(LoginCodeAuthenticatable $user, #[SensitiveParameter] string $code): bool

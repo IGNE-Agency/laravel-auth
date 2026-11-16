@@ -31,11 +31,19 @@ abstract class AuthenticationException extends RuntimeException implements Respo
     }
 
     /**
-     * Render the exception as a JSON response.
+     * Render the exception as a response.
      *
      * @param  Request  $request
      */
-    public function toResponse($request): JsonResponse
+    public function toResponse($request): Response
+    {
+        return $this->toJsonResponse();
+    }
+
+    /**
+     * Render the exception as its {message, code} JSON response.
+     */
+    public function toJsonResponse(): JsonResponse
     {
         return new JsonResponse([
             'message' => $this->getMessage(),

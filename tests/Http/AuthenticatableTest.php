@@ -10,7 +10,22 @@ it('returns the authenticated user without a wrapper', function (): void {
 
     $response = $this->withToken($token)->getJson('/api/user');
 
-    $response->assertOk()->assertExactJson(['id' => $user->id, 'email' => 'ada@example.com', 'confirmation_method' => 'password'])->assertMatchesOpenApi('authentication.user');
+    $response->assertOk()->assertExactJson([
+        'id' => $user->id,
+        'email' => 'ada@example.com',
+        'confirmation_method' => 'password',
+        'two_factor_enabled' => false,
+        'two_factor_required' => false,
+    ])->assertMatchesOpenApi('authentication.user');
+});
+
+it('tells whether the user set up two-factor authentication and must have it', function () {
+    config(['authentication.two_factor.required' => true]);
+    $user = User::factory()->withTwoFactorAuthentication()->create();
+
+    $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
+
+    $response->assertOk()->assertJson(['two_factor_enabled' => true, 'two_factor_required' => true]);
 });
 
 it('tells how the user confirms their identity', function (Closure $makeUser, ?string $confirmationMethod): void {
@@ -21,6 +36,7 @@ it('tells how the user confirms their identity', function (Closure $makeUser, ?s
     $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod)->assertMatchesOpenApi('authentication.user');
 })->with([
     'a user with a password, who may also use codes' => [fn (): User => User::factory()->create(), 'password'],
+    'a user without a password, with two-factor authentication' => [fn () => User::factory()->withoutPassword()->withTwoFactorAuthentication()->create(), 'totp'],
     'a user without a password' => [fn (): User => User::factory()->withoutPassword()->create(), 'login_code'],
     'a user with neither' => [fn (): User => User::factory()->withoutPassword()->withoutLoginCodes()->create(), null],
 ]);

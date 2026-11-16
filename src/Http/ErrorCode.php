@@ -11,4 +11,6 @@ enum ErrorCode: string
 {
     case PasswordUnavailable = 'password_unavailable';
     case LoginCodeUnavailable = 'login_code_unavailable';
+    case TwoFactorSetupRequired = 'two_factor_setup_required';
+    case TwoFactorRequired = 'two_factor_required';
 }

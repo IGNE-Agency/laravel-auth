@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Igne\Auth\Http\Responses;
 
 use Igne\Auth\Http\Channel;
+use Igne\Auth\Http\Responses\Concerns\IssuesAccessTokenAfterLogin;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
-use Illuminate\Auth\SessionGuard;
+use Igne\Auth\TwoFactor\DeviceTrust;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Http\Responses\LoginResponse as FortifyLoginResponse;
 use LogicException;
@@ -23,10 +23,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class LoginResponse implements LoginResponseContract
 {
+    use IssuesAccessTokenAfterLogin;
+
     public function __construct(
         private readonly FortifyLoginResponse $sessionResponse,
         private readonly IssuesAccessTokens $tokens,
         private readonly StatefulGuard $guard,
+        private readonly DeviceTrust $deviceTrust,
     ) {}
 
     /**
@@ -44,39 +47,16 @@ final class LoginResponse implements LoginResponseContract
             throw new LogicException('A login response needs a logged-in user.');
         }
 
-        $token = $this->tokens->issue($user, $this->tokenName($request));
+        $token = $this->issueAccessToken($request, $user);
 
-        $request->session()->invalidate();
-        $this->forgetSessionLogin();
+        // A login that skipped the challenge on a remembered device keeps
+        // that device trusted for the new token.
+        $this->deviceTrust->bindRememberedDevice($request, $user, $token->id);
 
         return new JsonResponse([
             'two_factor' => false,
             'token' => $token->plainTextToken,
             'expires_at' => $token->expiresAt?->toJSON(),
         ]);
-    }
-
-    /**
-     * Get the token name: the "device_name" field, or the user agent.
-     */
-    private function tokenName(Request $request): string
-    {
-        $deviceName = $request->input('device_name');
-        $name = is_string($deviceName) && trim($deviceName) !== '' ? trim($deviceName) : (string) $request->userAgent();
-
-        return Str::limit($name !== '' ? $name : 'Unknown device', 255, '');
-    }
-
-    /**
-     * Fortify logged the user into the session guard to get here. A token
-     * client never gets that session, so the guard forgets the login: the
-     * user, and the login id in the guard's own (never saved) store.
-     */
-    private function forgetSessionLogin(): void
-    {
-        if ($this->guard instanceof SessionGuard) {
-            $this->guard->getSession()->forget($this->guard->getName());
-            $this->guard->forgetUser();
-        }
     }
 }

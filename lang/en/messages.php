@@ -21,4 +21,19 @@ return [
         'expiry' => 'The code expires in :minutes minutes and works once.',
         'ignore' => 'Did you not request this code? Then you can ignore this email.',
     ],
+    'two_factor_setup_required' => 'Set up two-factor authentication to continue.',
+    'two_factor_required' => 'Confirm it is you with the code from your authenticator app to continue.',
+    'two_factor_reset_mail' => [
+        'subject' => 'Your two-factor authentication was reset',
+        'reset_by' => ':name reset the two-factor authentication of your account on :date.',
+        'reset' => 'The two-factor authentication of your account was reset on :date.',
+        'next' => 'Log in again and set up two-factor authentication again.',
+        'unexpected' => 'Did you not expect this? Then contact us right away.',
+    ],
+    'reset_two_factor_action' => [
+        'name' => 'Reset two-factor authentication',
+        'confirm' => 'Reset the two-factor authentication of the selected users? They are logged out everywhere and set up two-factor authentication again when they log in.',
+        'button' => 'Reset',
+        'done' => 'The two-factor authentication was reset.',
+    ],
 ];

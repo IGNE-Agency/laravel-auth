@@ -11,6 +11,7 @@ use Dedoc\Scramble\Support\Generator\Reference;
 use Dedoc\Scramble\Support\Generator\Response;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\Types\ArrayType;
+use Dedoc\Scramble\Support\Generator\Types\BooleanType;
 use Dedoc\Scramble\Support\Generator\Types\IntegerType;
 use Dedoc\Scramble\Support\Generator\Types\ObjectType;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
@@ -38,10 +39,12 @@ final class SharedSchemas
                     ->addProperty('id', $id)
                     ->addProperty('email', (new StringType)->format('email'))
                     ->addProperty('confirmation_method', (new StringType)
-                        ->enum([AuthenticationMethod::Password->value, AuthenticationMethod::LoginCode->value])
+                        ->enum([AuthenticationMethod::Password->value, AuthenticationMethod::Totp->value, AuthenticationMethod::LoginCode->value])
                         ->nullable(true)
-                        ->setDescription('How the user confirms their identity on POST /user/confirm-password: with their password, or with an emailed code from POST /user/confirm-password/code. Null when they can\'t.'))
-                    ->setRequired(['id', 'email', 'confirmation_method']),
+                        ->setDescription('How the user confirms their identity on POST /user/confirm-password: with their password, with a code from their authenticator app, or with an emailed code from POST /user/confirm-password/code. Null when they can\'t.'))
+                    ->addProperty('two_factor_enabled', (new BooleanType)->setDescription('Whether the user set up two-factor authentication.'))
+                    ->addProperty('two_factor_required', (new BooleanType)->setDescription('Whether the user must set up two-factor authentication before they can use the app.'))
+                    ->setRequired(['id', 'email', 'confirmation_method', 'two_factor_enabled', 'two_factor_required']),
             ));
         }
 
@@ -75,15 +78,19 @@ final class SharedSchemas
     }
 
     /**
-     * 403: a package error with a stable "code".
+     * 403: package errors with a stable "code".
+     *
+     * @param  non-empty-list<ErrorCode>  $codes
      */
-    public function forbidden(ErrorCode $code, string $description): Response
+    public function forbidden(array $codes): Response
     {
+        $description = implode(' ', array_map(fn (ErrorCode $code): string => "\"{$code->value}\": {$this->describe($code)}.", $codes));
+
         return Response::make(403)
             ->setDescription($description)
             ->setContent('application/json', Schema::fromType(
                 $this->messageObject()
-                    ->addProperty('code', (new StringType)->enum([$code->value]))
+                    ->addProperty('code', (new StringType)->enum(array_map(fn (ErrorCode $code): string => $code->value, $codes)))
                     ->setRequired(['message', 'code']),
             ));
     }
@@ -123,6 +130,16 @@ final class SharedSchemas
     public function tooManyRequests(): Reference
     {
         return $this->response('TooManyRequests', fn (): Response => $this->message(429, 'Too many attempts'));
+    }
+
+    private function describe(ErrorCode $code): string
+    {
+        return match ($code) {
+            ErrorCode::PasswordUnavailable => 'the user does not log in with a password',
+            ErrorCode::LoginCodeUnavailable => 'the user confirms their identity with another method',
+            ErrorCode::TwoFactorSetupRequired => 'the user must set up two-factor authentication first (POST /user/two-factor-authentication)',
+            ErrorCode::TwoFactorRequired => 'the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge)',
+        };
     }
 
     private function messageObject(): ObjectType

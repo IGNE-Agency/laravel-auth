@@ -9,36 +9,64 @@ use Igne\Auth\Authentication\Actions\ResetPassword;
 use Igne\Auth\Authentication\Actions\UpdatePassword;
 use Igne\Auth\Authentication\AuthenticateCredentials;
 use Igne\Auth\Authentication\ConfirmIdentity;
+use Igne\Auth\Events\TwoFactorAuthenticationReset;
 use Igne\Auth\Http\Middleware\AcceptJson;
 use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
+use Igne\Auth\Http\Responses\TwoFactorLoginResponse;
 use Igne\Auth\LoginCodes\Http\Responses\LoginCodeRequestedResponse;
 use Igne\Auth\LoginCodes\Models\LoginCode;
+use Igne\Auth\Nova\NovaIntegration;
 use Igne\Auth\OpenApi\Scramble\ScrambleIntegration;
 use Igne\Auth\Sessions\HeaderSessionFactory;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
+use Igne\Auth\TwoFactor\Console\ResetTwoFactorAuthenticationCommand;
+use Igne\Auth\TwoFactor\DeviceTrust;
+use Igne\Auth\TwoFactor\DeviceTrustLifetime;
+use Igne\Auth\TwoFactor\Http\Middleware\EnsureTwoFactorAuthenticated;
+use Igne\Auth\TwoFactor\Http\Middleware\PrepareTwoFactorStepUp;
+use Igne\Auth\TwoFactor\Listeners\IssueDeviceTrust;
+use Igne\Auth\TwoFactor\Listeners\RememberRecoveryCodeUse;
+use Igne\Auth\TwoFactor\Listeners\RevokeDeviceTrust;
+use Igne\Auth\TwoFactor\Listeners\SendTwoFactorAuthenticationResetNotification;
+use Igne\Auth\TwoFactor\Models\TrustedDevice;
+use Igne\Auth\TwoFactor\RedirectIfTwoFactorAuthenticatable;
+use Igne\Auth\TwoFactor\TwoFactorEnforcement;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Foundation\Application as FoundationApplication;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
+use Laravel\Fortify\Events\PasswordUpdatedViaController;
+use Laravel\Fortify\Events\RecoveryCodeReplaced;
+use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
+use Laravel\Fortify\Events\TwoFactorAuthenticationDisabled;
+use Laravel\Fortify\Events\ValidTwoFactorAuthenticationCodeProvided;
 use Laravel\Fortify\Fortify;
+use Laravel\Nova\Nova;
+use Laravel\Nova\NovaCoreServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 use LogicException;
@@ -71,6 +99,8 @@ final class AuthenticationServiceProvider extends ServiceProvider
         });
 
         $this->app->scoped(HeaderSessionFactory::class);
+        $this->app->scoped(DeviceTrust::class);
+        $this->app->singleton(TwoFactorEnforcement::class);
     }
 
     public function boot(): void
@@ -80,10 +110,13 @@ final class AuthenticationServiceProvider extends ServiceProvider
 
         $this->configureFortify();
         $this->configureTokens();
+        $this->configureTwoFactor();
         $this->configureMiddleware();
         $this->configureRateLimiting();
         $this->configureRoutes();
+        $this->configureCommands();
         $this->configureSchedule();
+        $this->configureNova();
         $this->configureOpenApi();
     }
 
@@ -121,8 +154,13 @@ final class AuthenticationServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetPassword::class);
         Fortify::updateUserPasswordsUsing(UpdatePassword::class);
 
+        // Nova rebinds only Fortify's concrete class, so this contract binding
+        // also runs for Nova's login.
+        Fortify::redirectUserForTwoFactorAuthenticationUsing(RedirectIfTwoFactorAuthenticatable::class);
+
         $this->app->scoped(LoginResponseContract::class, LoginResponse::class);
         $this->app->scoped(LogoutResponseContract::class, LogoutResponse::class);
+        $this->app->scoped(TwoFactorLoginResponseContract::class, TwoFactorLoginResponse::class);
     }
 
     /**
@@ -144,8 +182,52 @@ final class AuthenticationServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the middleware aliases, and run the header session right after
-     * where a cookie session would start: before authentication and throttling.
+     * Validate the device trust settings, hook the device trust into Fortify's
+     * and the package's events, and exempt the package's own routes from the
+     * checks they serve.
+     */
+    private function configureTwoFactor(): void
+    {
+        DeviceTrustLifetime::fromConfig($this->app->make('config'));
+
+        $events = $this->app->make(Dispatcher::class);
+        $events->listen([ValidTwoFactorAuthenticationCodeProvided::class, TwoFactorAuthenticationConfirmed::class], IssueDeviceTrust::class);
+        $events->listen(RecoveryCodeReplaced::class, RememberRecoveryCodeUse::class);
+        $events->listen([TwoFactorAuthenticationDisabled::class, PasswordUpdatedViaController::class, PasswordReset::class], RevokeDeviceTrust::class);
+        $events->listen(TwoFactorAuthenticationReset::class, SendTwoFactorAuthenticationResetNotification::class);
+
+        // Trust that is bound to an access token ends with the token. The app
+        // may swap Sanctum's token model while it boots.
+        $this->app->booted(static function () use ($events): void {
+            $events->listen('eloquent.deleted: '.Sanctum::personalAccessTokenModel(), static function (PersonalAccessToken $token): void {
+                Container::getInstance()->make(DeviceTrust::class)->forgetAccessToken((string) $token->getKey());
+            });
+        });
+
+        // Apps allow resetting the two-factor authentication of others by
+        // defining this gate themselves.
+        if (! Gate::has('resetTwoFactorAuthentication')) {
+            Gate::define('resetTwoFactorAuthentication', static fn (mixed $user, mixed $target = null): bool => false);
+        }
+
+        $enforcement = $this->app->make(TwoFactorEnforcement::class);
+        $enforcement->except(
+            'authentication.login',
+            'authentication.logout',
+            'authentication.login-code',
+            'authentication.two-factor.challenge',
+            'authentication.user',
+            'authentication.password.confirm.*',
+            'authentication.password.confirmation',
+        );
+        $enforcement->exceptSetup('authentication.two-factor.*');
+    }
+
+    /**
+     * Register the middleware aliases. The header session runs right after
+     * where a cookie session would start, before authentication and
+     * throttling; the two-factor enforcement runs in the "web" and "api"
+     * groups, right after authentication.
      */
     private function configureMiddleware(): void
     {
@@ -154,8 +236,18 @@ final class AuthenticationServiceProvider extends ServiceProvider
         $router->aliasMiddleware('authentication.header-session', StartHeaderSession::class);
         $router->aliasMiddleware('authentication.password-authenticatable', EnsurePasswordAuthenticatable::class);
         $router->aliasMiddleware('authentication.conceal-password-reset', ConcealPasswordResetOutcome::class);
+        $router->aliasMiddleware('authentication.two-factor', EnsureTwoFactorAuthenticated::class);
 
-        $this->app->make(HttpKernel::class)->addToMiddlewarePriorityAfter(StartSession::class, StartHeaderSession::class);
+        $kernel = $this->app->make(HttpKernel::class);
+        $kernel->addToMiddlewarePriorityAfter(StartSession::class, StartHeaderSession::class);
+        $kernel->addToMiddlewarePriorityAfter(StartHeaderSession::class, PrepareTwoFactorStepUp::class);
+        $kernel->addToMiddlewarePriorityAfter(AuthenticatesRequests::class, EnsureTwoFactorAuthenticated::class);
+
+        foreach (['web', 'api'] as $group) {
+            if (array_key_exists($group, $kernel->getMiddlewareGroups())) {
+                $kernel->appendMiddlewareToGroup($group, EnsureTwoFactorAuthenticated::class);
+            }
+        }
     }
 
     private function configureRateLimiting(): void
@@ -181,6 +273,14 @@ final class AuthenticationServiceProvider extends ServiceProvider
                     ->by('email:'.(is_string($username) ? Str::lower(trim($username)) : ''))
                     ->response($concealedResponse),
             ];
+        });
+
+        // Five codes a minute per pending challenge (the challenged user), or
+        // per IP address without one.
+        RateLimiter::for('authentication-two-factor', static function (Request $request): Limit {
+            $challengedUserId = $request->hasSession() ? $request->session()->get('login.id') : null;
+
+            return Limit::perMinute(5)->by(is_scalar($challengedUserId) ? 'user:'.$challengedUserId : 'ip:'.$request->ip());
         });
 
         RateLimiter::for('authentication-confirmation-code', static function (Request $request): array {
@@ -218,6 +318,13 @@ final class AuthenticationServiceProvider extends ServiceProvider
             ->group(self::path('routes/authentication.php'));
     }
 
+    private function configureCommands(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([ResetTwoFactorAuthenticationCommand::class]);
+        }
+    }
+
     private function configureSchedule(): void
     {
         $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
@@ -226,8 +333,24 @@ final class AuthenticationServiceProvider extends ServiceProvider
             }
 
             $schedule->command('sanctum:prune-expired', ['--hours' => 24])->daily();
-            $schedule->command('model:prune', ['--model' => [config()->string('authentication.login_codes.model', LoginCode::class)]])->daily();
+            $schedule->command('model:prune', ['--model' => [
+                config('authentication.login_codes.model', LoginCode::class),
+                config('authentication.two_factor.model', TrustedDevice::class),
+            ]])->daily();
         });
+    }
+
+    /**
+     * Let Nova's own screens handle two-factor authentication, when the app
+     * runs Nova.
+     */
+    private function configureNova(): void
+    {
+        if (! class_exists(Nova::class) || ! $this->app instanceof FoundationApplication || ! $this->app->providerIsLoaded(NovaCoreServiceProvider::class)) {
+            return;
+        }
+
+        $this->app->make(NovaIntegration::class)->boot();
     }
 
     /**

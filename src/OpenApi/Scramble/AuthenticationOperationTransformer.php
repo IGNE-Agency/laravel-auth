@@ -14,9 +14,12 @@ use Dedoc\Scramble\Support\Generator\Response;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityRequirement;
 use Dedoc\Scramble\Support\RouteInfo;
+use Igne\Auth\Http\ErrorCode;
 use Igne\Auth\OpenApi\Schemas\AuthenticationOperations;
 use Igne\Auth\OpenApi\Schemas\OperationSchema;
 use Igne\Auth\OpenApi\Schemas\SharedSchemas;
+use Igne\Auth\TwoFactor\TwoFactorEnforcement;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 
 /**
@@ -32,7 +35,10 @@ final class AuthenticationOperationTransformer implements OperationTransformer
      */
     public const string REPLACED_SCHEMAS_ATTRIBUTE = 'authentication.replaced_schemas';
 
-    public function __construct(private readonly OpenApi $openApi) {}
+    public function __construct(
+        private readonly OpenApi $openApi,
+        private readonly TwoFactorEnforcement $twoFactorEnforcement,
+    ) {}
 
     public function handle(Operation $operation, RouteInfo $routeInfo): void
     {
@@ -67,7 +73,7 @@ final class AuthenticationOperationTransformer implements OperationTransformer
             : RequestBodyObject::make()->required()->setContent('application/json', Schema::fromType($definition->requestBody));
         $operation->responses = [
             ...$definition->responses,
-            ...$this->errorResponses($definition, $middleware->all(), $schemas),
+            ...$this->errorResponses($definition, $routeInfo->route, $middleware->all(), $schemas),
         ];
     }
 
@@ -94,17 +100,36 @@ final class AuthenticationOperationTransformer implements OperationTransformer
      * request body.
      *
      * @param  array<int|string, string>  $middleware
-     * @return list<Reference>
+     * @return list<Response|Reference>
      */
-    private function errorResponses(OperationSchema $definition, array $middleware, SharedSchemas $schemas): array
+    private function errorResponses(OperationSchema $definition, Route $route, array $middleware, SharedSchemas $schemas): array
     {
         $has = fn (string $pattern): bool => collect($middleware)->contains(fn (string $name): bool => Str::is($pattern, $name));
+        $forbiddenCodes = [...$definition->errorCodes, ...($has('auth:*') ? $this->twoFactorErrorCodes($route) : [])];
 
         return array_values(array_filter([
             $has('auth:*') ? $schemas->unauthenticated() : null,
+            $forbiddenCodes === [] ? null : $schemas->forbidden($forbiddenCodes),
             $definition->validatesInput ? $schemas->validationError() : null,
             $has('password.confirm*') ? $schemas->passwordConfirmationRequired() : null,
             ($definition->throttled ?? $has('throttle:*')) ? $schemas->tooManyRequests() : null,
         ]));
+    }
+
+    /**
+     * Get the codes the two-factor enforcement can answer an authenticated
+     * route with.
+     *
+     * @return list<ErrorCode>
+     */
+    private function twoFactorErrorCodes(Route $route): array
+    {
+        if (! $this->twoFactorEnforcement->isActive() || $this->twoFactorEnforcement->isRouteExempt($route)) {
+            return [];
+        }
+
+        return $this->twoFactorEnforcement->isRouteExemptFromSetup($route)
+            ? [ErrorCode::TwoFactorRequired]
+            : [ErrorCode::TwoFactorSetupRequired, ErrorCode::TwoFactorRequired];
     }
 }
