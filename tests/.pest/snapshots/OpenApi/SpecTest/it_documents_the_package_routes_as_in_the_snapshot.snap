@@ -1,0 +1,1765 @@
+{
+    "paths": {
+        "/auth/forgot-password": {
+            "post": {
+                "operationId": "authentication.password.email",
+                "description": "Always answers with the same success for a valid email address, whether or not an account exists. Only users that can log in with a password get a link.",
+                "summary": "Request a password reset link",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request was accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "operationId": "authentication.login",
+                "description": "Session mode (an SPA whose requests run through Sanctum's stateful stack) logs in to the cookie session. Token mode answers with an access token instead; \"remember\" is ignored and \"device_name\" names the token (the user agent otherwise). \"password\" is the user's password, or a login code from POST /auth/login-code for users that log in with codes. Users with two-factor authentication get \"two_factor\": true and pass the challenge next, unless the device is remembered: its device token comes along as the two_factor_device cookie (session mode) or the X-Two-Factor-Device header (token mode).",
+                "summary": "Log in with email and password or login code",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Two-Factor-Device",
+                        "in": "header",
+                        "description": "Token mode: the device token of a remembered device, which skips the two-factor challenge.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "remember": {
+                                        "type": "boolean"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logged in, or the two-factor challenge must follow",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "two_factor": {
+                                            "type": "boolean",
+                                            "description": "Whether a two-factor challenge must follow (POST /auth/two-factor-challenge)."
+                                        },
+                                        "challenge": {
+                                            "type": "string",
+                                            "description": "Token mode, with \"two_factor\": true: the challenge id for the X-Auth-Challenge header."
+                                        },
+                                        "token": {
+                                            "type": "string",
+                                            "description": "Token mode, with \"two_factor\": false: the access token for the Authorization: Bearer header."
+                                        },
+                                        "expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "format": "date-time",
+                                            "description": "Token mode only: when the access token expires, or null when it does not."
+                                        }
+                                    },
+                                    "required": [
+                                        "two_factor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/auth/login-code": {
+            "post": {
+                "operationId": "authentication.login-code",
+                "description": "Emails a one-time login code when the account can log in with one. The answer is always 202 with the same body: for unknown accounts, for accounts that can't use codes and when rate-limited too, so it never reveals whether an account exists. Log in by sending the code as \"password\" to POST /auth/login.",
+                "summary": "Request a login code",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The request was accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "authentication.logout",
+                "description": "Session mode ends the session. Token mode revokes the access token the request was sent with.",
+                "summary": "Log out",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Logged out"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "operationId": "authentication.password.update",
+                "summary": "Reset the password with a reset token",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "token",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The password was reset",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/auth/two-factor-challenge": {
+            "post": {
+                "operationId": "authentication.two-factor.challenge",
+                "description": "Send a code from the authenticator app (\"code\") or a recovery code (\"recovery_code\"). After a login that answered \"two_factor\": true, session mode sends the session cookie and token mode the challenge id in the X-Auth-Challenge header; a challenge works once. A logged-in user whose device is not trusted (403 \"two_factor_required\") steps up with their session or access token instead. \"remember_device\" trusts the device for longer than the session or access token; a recovery code never does.",
+                "summary": "Pass the two-factor challenge",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Auth-Challenge",
+                        "in": "header",
+                        "description": "Token mode, after a login: the \"challenge\" from the login answer.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "code": {
+                                        "type": "string"
+                                    },
+                                    "recovery_code": {
+                                        "type": "string"
+                                    },
+                                    "remember_device": {
+                                        "type": "boolean"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token mode: the challenge was passed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string",
+                                            "description": "After a login: the access token for the Authorization: Bearer header."
+                                        },
+                                        "expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "format": "date-time",
+                                            "description": "After a login: when the access token expires, or null when it does not."
+                                        },
+                                        "device_token": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "description": "The device token for the X-Two-Factor-Device header, which skips the challenge at the next logins; null when the trust only lasts as long as the access token."
+                                        }
+                                    },
+                                    "required": [
+                                        "device_token"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "Session mode: the challenge was passed"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/user": {
+            "get": {
+                "operationId": "authentication.user",
+                "summary": "Get the authenticated user",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The authenticated user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Authenticatable"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/confirm-password": {
+            "post": {
+                "operationId": "authentication.password.confirm.store",
+                "description": "Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token. \"password\" is what the user's \"confirmation_method\" says: their password, a code from their authenticator app, or an emailed code from POST /user/confirm-password/code.",
+                "summary": "Confirm the password",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "password": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The password was confirmed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/confirm-password/code": {
+            "post": {
+                "operationId": "authentication.password.confirm.code",
+                "description": "Emails a one-time code to a user whose \"confirmation_method\" is \"login_code\". Confirm by sending it as \"password\" to POST /user/confirm-password.",
+                "summary": "Request a confirmation code",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The code was sent",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"login_code_unavailable\": the user confirms their identity with another method.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "login_code_unavailable"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/confirmed-password-status": {
+            "get": {
+                "operationId": "authentication.password.confirmation",
+                "summary": "Get the password confirmation status",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "seconds",
+                        "in": "query",
+                        "description": "The confirmation window in seconds. Defaults to the app's password timeout.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether the password was confirmed recently",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "confirmed": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "confirmed"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/confirmed-two-factor-authentication": {
+            "post": {
+                "operationId": "authentication.two-factor.confirm",
+                "description": "Finishes the setup with a code from the authenticator app. The session or access token the request is sent with is trusted from then on.",
+                "summary": "Confirm two-factor authentication",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "code": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "code"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Two-factor authentication is set up"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/devices": {
+            "get": {
+                "operationId": "authentication.devices.index",
+                "description": "The devices and access tokens the user passed the two-factor challenge on, that are still trusted, newest first.",
+                "summary": "List the trusted devices",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The trusted devices",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/TrustedDevice"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/devices/{trustedDevice}": {
+            "delete": {
+                "operationId": "authentication.devices.destroy",
+                "description": "The device must pass the two-factor challenge again at its next login; when the request comes from it, at its next request.",
+                "summary": "Revoke a trusted device",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "trustedDevice",
+                        "in": "path",
+                        "required": true,
+                        "description": "The \"id\" from GET /user/devices.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The device is no longer trusted"
+                    },
+                    "404": {
+                        "description": "The user has no such device",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/password": {
+            "put": {
+                "operationId": "authentication.user-password.update",
+                "description": "Only for users that log in with a password.",
+                "summary": "Change the password",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The password was changed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"password_unavailable\": the user does not log in with a password. \"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "password_unavailable",
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/sessions": {
+            "get": {
+                "operationId": "authentication.sessions.index",
+                "description": "The places the user is logged in: cookie sessions (only with the \"database\" session driver) and access tokens. The one the request comes from is first, then the most recently active.",
+                "summary": "List the sessions",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The sessions and access tokens",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ActiveSession"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "authentication.sessions.destroy-others",
+                "description": "Ends every cookie session and revokes every access token of the user, except the one the request comes from. \"Remember me\" logins end too.",
+                "summary": "Revoke all other sessions",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The other sessions and access tokens were revoked"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/sessions/{session}": {
+            "delete": {
+                "operationId": "authentication.sessions.destroy",
+                "description": "Ends a cookie session or revokes an access token. Ending a cookie session also ends \"remember me\" logins on other browsers. The session or access token the request comes from can't be revoked here: log out instead.",
+                "summary": "Revoke a session",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "session",
+                        "in": "path",
+                        "required": true,
+                        "description": "The \"id\" from GET /user/sessions: \"session:{hash}\" or \"token:{id}\".",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The session or access token was revoked"
+                    },
+                    "404": {
+                        "description": "The user has no such session or access token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"current_session\": the request comes from this session or access token; log out to end it (POST /auth/logout). \"two_factor_setup_required\": the user must set up two-factor authentication first (POST /user/two-factor-authentication). \"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "current_session",
+                                                "two_factor_setup_required",
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/two-factor-authentication": {
+            "post": {
+                "operationId": "authentication.two-factor.enable",
+                "description": "Creates a new authenticator secret and recovery codes. Show the QR code from GET /user/two-factor-qr-code, then confirm a code from the authenticator app with POST /user/confirmed-two-factor-authentication. \"force\" replaces an existing secret.",
+                "summary": "Set up two-factor authentication",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "force": {
+                                        "type": "boolean"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The secret was created"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "authentication.two-factor.disable",
+                "description": "Removes the secret and recovery codes, and revokes the other trusted devices.",
+                "summary": "Disable two-factor authentication",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Two-factor authentication is disabled"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/two-factor-qr-code": {
+            "get": {
+                "operationId": "authentication.two-factor.qr-code",
+                "summary": "Get the QR code of the authenticator secret",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The QR code as SVG and its otpauth URL; an empty array before the setup started",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "svg": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "svg",
+                                        "url"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/two-factor-recovery-codes": {
+            "get": {
+                "operationId": "authentication.two-factor.recovery-codes",
+                "summary": "Get the recovery codes",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The unused recovery codes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "authentication.two-factor.regenerate-recovery-codes",
+                "summary": "Replace the recovery codes",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes were made"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/two-factor-secret-key": {
+            "get": {
+                "operationId": "authentication.two-factor.secret-key",
+                "description": "For entering the secret in an authenticator app by hand.",
+                "summary": "Get the authenticator secret",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The secret",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "secretKey": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "secretKey"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Two-factor authentication is not set up",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "\"two_factor_required\": the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "two_factor_required"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "$ref": "#/components/responses/PasswordConfirmationRequired"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearer": {
+                "type": "http",
+                "description": "An access token from POST /auth/login in token mode.",
+                "scheme": "bearer"
+            },
+            "session": {
+                "type": "apiKey",
+                "description": "The session cookie of an SPA that logged in in session mode.",
+                "in": "cookie",
+                "name": "laravel_session"
+            },
+            "xsrf": {
+                "type": "apiKey",
+                "description": "The value of the XSRF-TOKEN cookie, required with the session cookie.",
+                "in": "header",
+                "name": "X-XSRF-TOKEN"
+            }
+        },
+        "schemas": {
+            "ActiveSession": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "\"session:\" plus the SHA-256 hash of the session id, or \"token:\" plus the access token id; for DELETE /user/sessions/{session}."
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "\"session\" for a cookie session, \"token\" for an access token.",
+                        "enum": [
+                            "session",
+                            "token"
+                        ]
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The user agent of a session, or the name of an access token."
+                    },
+                    "ip_address": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The last IP address of a session; null for an access token."
+                    },
+                    "last_active_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "is_current": {
+                        "type": "boolean",
+                        "description": "Whether the request comes from this session or access token."
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "name",
+                    "ip_address",
+                    "last_active_at",
+                    "is_current"
+                ],
+                "title": "ActiveSession"
+            },
+            "Authenticatable": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "integer",
+                            "string"
+                        ]
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "confirmation_method": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "How the user confirms their identity on POST /user/confirm-password: with their password, with a code from their authenticator app, or with an emailed code from POST /user/confirm-password/code. Null when they can't.",
+                        "enum": [
+                            "password",
+                            "totp",
+                            "login_code",
+                            null
+                        ]
+                    },
+                    "two_factor_enabled": {
+                        "type": "boolean",
+                        "description": "Whether the user set up two-factor authentication."
+                    },
+                    "two_factor_required": {
+                        "type": "boolean",
+                        "description": "Whether the user must set up two-factor authentication before they can use the app."
+                    }
+                },
+                "required": [
+                    "id",
+                    "email",
+                    "confirmation_method",
+                    "two_factor_enabled",
+                    "two_factor_required"
+                ],
+                "title": "Authenticatable"
+            },
+            "TrustedDevice": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The device id for DELETE /user/devices/{trustedDevice}."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The \"device_name\" given at login, or the user agent."
+                    },
+                    "ip_address": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The IP address the device passed the two-factor challenge from."
+                    },
+                    "remembered": {
+                        "type": "boolean",
+                        "description": "Whether the user asked to remember the device (\"remember_device\")."
+                    },
+                    "last_used_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "When the trust ends; null when it ends with the access token."
+                    },
+                    "is_current": {
+                        "type": "boolean",
+                        "description": "Whether the request comes from this device."
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "ip_address",
+                    "remembered",
+                    "last_used_at",
+                    "expires_at",
+                    "is_current"
+                ],
+                "title": "TrustedDevice"
+            }
+        },
+        "responses": {
+            "ValidationError": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "The messages per invalid field.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "TooManyRequests": {
+                "description": "Too many attempts",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "Unauthenticated": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "PasswordConfirmationRequired": {
+                "description": "Password confirmation required: confirm the password, then retry.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
