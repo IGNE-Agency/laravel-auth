@@ -1,6 +1,6 @@
 # Concepts
 
-The words IGNE projects use for authentication and authorization, what this package builds of them, and where each check belongs. The same text ships as a Laravel Boost guideline (`resources/boost/guidelines/core.blade.php`), so AI agents in the app follow it too; see the README's [AI guidelines](../README.md#ai-guidelines).
+The words IGNE projects use for authentication and authorization, what this package builds of them, and where each check belongs. The same text ships as a Laravel Boost guideline (`resources/boost/guidelines/core.blade.php`), so AI agents in the app follow it too; see [AI guidelines](ai-guidelines.md).
 
 ## Glossary
 
@@ -31,7 +31,7 @@ The words IGNE projects use for authentication and authorization, what this pack
 | Space, Role, Permission | Later | Concepts only. |
 | Scope | Later | Concept only. Access tokens get every Sanctum ability (`*`), and nothing checks them. |
 | SSO and external identities | Later | Concept only. |
-| Passport as token issuer | Later | Concept only. The token issuer contract leaves room for it; see the README's [Passport](../README.md#passport) section. |
+| Passport as token issuer | Later | Concept only. The token issuer contract leaves room for it; see [Passport](clients.md#passport). |
 
 When a feature needs a concept marked "later", use its name from this page instead of inventing a new one.
 
@@ -79,7 +79,7 @@ In a project on this package:
 3. **Route authorization:** the `can:` middleware or a Gate check.
 4. **Policy / handler:** a Laravel policy for the model.
 5. **Query scope:** an Eloquent scope on list queries.
-6. **Audit log:** the package records its own security events. See the README's [audit log](../README.md#audit-log) section.
+6. **Audit log:** the package records its own security events. See [Audit log](audit-log.md).
 
 ## Package rules
 
