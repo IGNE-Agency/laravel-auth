@@ -69,11 +69,12 @@ final class ResetTwoFactorAuthentication extends Action
      * Get the id of the one user the action list is for, like Nova's action
      * controller does.
      */
-    private static function selectedResourceId(NovaRequest $request): mixed
+    private static function selectedResourceId(NovaRequest $request): int|string|null
     {
         $resources = $request->input('resources');
+        $resourceId = is_array($resources) && count($resources) === 1 ? ($resources[0] ?? null) : null;
 
-        return is_array($resources) && count($resources) === 1 ? $resources[0] : null;
+        return is_int($resourceId) || is_string($resourceId) ? $resourceId : null;
     }
 
     private static function allows(Request $request, mixed $target): bool

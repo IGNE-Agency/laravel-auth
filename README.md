@@ -73,6 +73,12 @@ With the default prefix `api`:
 
 The password routes follow Fortify's `resetPasswords` and `updatePasswords` features, and the two-factor routes its `twoFactorAuthentication` feature. The password reset and change routes run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
 
+## Nova
+
+With [Laravel Nova](https://nova.laravel.com) 5 installed, `Igne\Auth\Nova\NovaIntegration` lets Nova's own login, challenge and User Security screens handle two-factor authentication (see above), and the action `Igne\Auth\Nova\Actions\ResetTwoFactorAuthentication` resets it from a user resource. Nova is paid, so the package only suggests it.
+
+The package's own CI covers the adapter in its `nova` job when the repository has the `COMPOSER_AUTH` secret: it installs Nova, runs Larastan with `phpstan-nova.neon.dist` (which includes `src/Nova`) and runs the tests in `tests/Nova` on a Testbench Nova setup (`tests/Fixtures/Nova`). Without the secret, such as on pull requests from forks, the job skips those steps.
+
 ## OpenAPI
 
 When the app uses [Scramble](https://scramble.dedoc.co) 0.13.48 or a later 0.13 release, the package documents its routes in the app's default API: explicit request and response schemas per route, the `bearer`, `session` and `xsrf` security schemes, and the responses of the package exceptions the app's own code throws. Scramble stays optional; the package conflicts with Scramble versions outside that range, because its extension API changes between 0.x releases.
@@ -88,8 +94,17 @@ The package runs on its own, on Orchestra Testbench with Fortify, Sanctum and Sc
 ```bash
 composer install
 composer lint      # Pint
-composer analyse   # Larastan, level max on src and tests/Fixtures
+composer analyse   # Larastan, level max on src and tests/Fixtures, without the Nova code
 composer test      # Pest
 ```
 
 `tests/TestCase.php` configures the app the suite needs: an in-memory SQLite database, array cache, session and mail, and the fixture user in `tests/Fixtures`. Without Scramble or `opis/json-schema` installed, the snapshot test is skipped and `assertMatchesOpenApi` asserts nothing; CI runs the suite that way too.
+
+Without Nova, the tests in `tests/Nova` are skipped. With Nova credentials in your Composer auth, run the Nova checks locally, then revert `composer.json`:
+
+```bash
+composer config repositories.nova composer https://nova.laravel.com
+composer require --dev laravel/nova:^5.11
+vendor/bin/phpstan analyse -c phpstan-nova.neon.dist --memory-limit=1G
+vendor/bin/pest tests/Nova
+```

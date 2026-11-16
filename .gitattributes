@@ -7,5 +7,6 @@
 /AGENTS.md         export-ignore
 /phpstan           export-ignore
 /phpstan.neon.dist export-ignore
+/phpstan-nova.neon.dist export-ignore
 /phpunit.xml.dist  export-ignore
 /pint.json         export-ignore

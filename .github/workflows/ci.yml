@@ -54,3 +54,48 @@ jobs:
 
       - name: Pest
         run: composer test
+
+  nova:
+    name: PHP 8.4 with Nova
+    runs-on: ubuntu-latest
+
+    steps:
+      # Nova is paid: the job installs it with the COMPOSER_AUTH secret, and
+      # passes without checking anything where the secret is not available.
+      - name: Check for Nova credentials
+        id: nova-credentials
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: |
+          if [ -n "$COMPOSER_AUTH" ]; then
+            echo "has_auth=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_auth=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The COMPOSER_AUTH secret is not set, so Nova is not installed and the Nova checks are skipped."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.nova-credentials.outputs.has_auth == 'true'
+
+      - uses: shivammathur/setup-php@v2
+        if: steps.nova-credentials.outputs.has_auth == 'true'
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies with Nova
+        if: steps.nova-credentials.outputs.has_auth == 'true'
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+        run: |
+          composer config repositories.nova composer https://nova.laravel.com
+          composer require --dev laravel/nova:^5.11 --no-update --no-interaction
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Larastan with Nova
+        if: steps.nova-credentials.outputs.has_auth == 'true'
+        run: vendor/bin/phpstan analyse -c phpstan-nova.neon.dist --memory-limit=1G
+
+      - name: Pest on the Nova tests
+        if: steps.nova-credentials.outputs.has_auth == 'true'
+        run: vendor/bin/pest tests/Nova
