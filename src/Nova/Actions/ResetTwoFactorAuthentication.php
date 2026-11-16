@@ -12,15 +12,21 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Nova\Actions\Action;
 use Laravel\Nova\Actions\ActionResponse;
+use Laravel\Nova\Actions\DestructiveAction;
 use Laravel\Nova\Fields\ActionFields;
+use Laravel\Nova\Fields\Field;
+use Laravel\Nova\Fields\Password;
 use Laravel\Nova\Http\Requests\NovaRequest;
+use Laravel\Nova\Util;
 
 /**
  * Resets the two-factor authentication of the selected users and logs them
- * out everywhere. The "resetTwoFactorAuthentication" gate decides who may
- * see and run it, per target user; the package defines it to deny everyone.
+ * out everywhere. It is destructive: the confirmation says what happens and
+ * asks the admin for their own password. The "resetTwoFactorAuthentication"
+ * gate decides who may see and run it, per target user; the package defines
+ * it to deny everyone.
  */
-final class ResetTwoFactorAuthentication extends Action
+final class ResetTwoFactorAuthentication extends DestructiveAction
 {
     public function __construct()
     {
@@ -32,6 +38,21 @@ final class ResetTwoFactorAuthentication extends Action
         $this->canSee(static fn (NovaRequest $request): bool => self::allows($request, $request->findModel(self::selectedResourceId($request))));
 
         $this->canRun(static fn (Request $request, mixed $target): bool => self::allows($request, $target));
+    }
+
+    /**
+     * The admin confirms with their own password, checked with Laravel's
+     * current_password rule on Nova's guard.
+     *
+     * @return list<Field>
+     */
+    public function fields(NovaRequest $request): array
+    {
+        return [
+            Password::make(__('authentication::messages.reset_two_factor_action.password'), 'password')
+                ->rules('required', 'string', 'current_password:'.Util::userGuard())
+                ->help(__('authentication::messages.reset_two_factor_action.password_help')),
+        ];
     }
 
     public function name(): string
