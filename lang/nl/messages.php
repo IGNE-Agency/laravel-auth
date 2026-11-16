@@ -33,8 +33,10 @@ return [
     ],
     'reset_two_factor_action' => [
         'name' => 'Tweestapsverificatie resetten',
-        'confirm' => 'De tweestapsverificatie van de geselecteerde gebruikers resetten? Ze worden overal uitgelogd en stellen bij het inloggen opnieuw tweestapsverificatie in.',
-        'button' => 'Resetten',
+        'confirm' => 'Hiermee reset je de tweestapsverificatie van de geselecteerde gebruikers. Hun authenticator, herstelcodes en vertrouwde apparaten worden verwijderd, ze worden op elk apparaat uitgelogd (sessies en toegangstokens) en ze krijgen een e-mail over de reset. Bij hun volgende login stellen ze tweestapsverificatie opnieuw in. Reset je je eigen tweestapsverificatie, dan word je zelf ook uitgelogd.',
+        'button' => 'Tweestapsverificatie resetten',
+        'password' => 'Je wachtwoord',
+        'password_help' => 'Vul je eigen wachtwoord in om deze actie te bevestigen.',
         'done' => 'De tweestapsverificatie is gereset.',
     ],
 ];

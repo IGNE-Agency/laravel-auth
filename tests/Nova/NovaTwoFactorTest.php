@@ -127,6 +127,17 @@ describe('the reset action', function (): void {
             ->and($forSelf->assertOk()->json('actions.*.uriKey'))->not->toContain('reset-two-factor-authentication');
     });
 
+    it('is a destructive action that asks for the admin\'s own password', function (): void {
+        $user = User::factory()->withTwoFactorAuthentication()->create();
+
+        $response = $this->getJson($this->novaApiUrl('/users/actions').'?'.http_build_query(['resources' => [$user->id]]));
+
+        $action = collect($response->assertOk()->json('actions'))->firstWhere('uriKey', 'reset-two-factor-authentication');
+        expect($action['destructive'])->toBeTrue()
+            ->and($action['confirmText'])->toContain('logged out on every device')
+            ->and(collect($action['fields'])->pluck('attribute')->all())->toBe(['password']);
+    });
+
     it('is not offered to a user who may not reset two-factor authentication', function (): void {
         Gate::define('resetTwoFactorAuthentication', fn (): bool => false);
         $user = User::factory()->create();
@@ -140,10 +151,24 @@ describe('the reset action', function (): void {
         Notification::fake();
         $user = User::factory()->withTwoFactorAuthentication()->create();
 
-        $response = $this->postJson($this->novaApiUrl('/users/action').'?action=reset-two-factor-authentication', ['resources' => (string) $user->id]);
+        $response = $this->postJson($this->novaApiUrl('/users/action').'?action=reset-two-factor-authentication', ['resources' => (string) $user->id, 'password' => 'password']);
 
         $response->assertOk();
         expect($user->fresh()->hasEnabledTwoFactorAuthentication())->toBeFalse();
         Notification::assertSentTo($user, TwoFactorAuthenticationResetNotification::class, fn (TwoFactorAuthenticationResetNotification $notification): bool => $notification->resetBy?->is($this->admin) === true);
     });
+
+    it('resets nothing without the admin\'s correct password', function (array $input): void {
+        Notification::fake();
+        $user = User::factory()->withTwoFactorAuthentication()->create();
+
+        $response = $this->postJson($this->novaApiUrl('/users/action').'?action=reset-two-factor-authentication', ['resources' => (string) $user->id, ...$input]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['password']);
+        expect($user->fresh()->hasEnabledTwoFactorAuthentication())->toBeTrue();
+        Notification::assertNothingSent();
+    })->with([
+        'a wrong password' => [['password' => 'wrong-password']],
+        'no password' => [[]],
+    ]);
 });
