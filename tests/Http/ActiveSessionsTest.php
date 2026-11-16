@@ -71,7 +71,7 @@ it('lists the user\'s web sessions and access tokens without raw ids, the curren
             'last_active_at' => Date::now()->subHour()->toJSON(),
             'is_current' => false,
         ],
-    ]]);
+    ]])->assertMatchesOpenApi('authentication.sessions.index');
     expect($response->getContent())->not->toContain($laptopSessionId);
 });
 
@@ -82,7 +82,7 @@ it('lists only the access tokens with another session driver', function (): void
 
     $response = $this->withToken($token->plainTextToken)->getJson('/api/user/sessions');
 
-    $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.type', 'token');
+    $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.type', 'token')->assertMatchesOpenApi('authentication.sessions.index');
 });
 
 it('leaves out access tokens that expired or were idle too long', function (): void {
@@ -94,11 +94,11 @@ it('leaves out access tokens that expired or were idle too long', function (): v
 
     $response = $this->withToken($token->plainTextToken)->getJson('/api/user/sessions');
 
-    $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Phone');
+    $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Phone')->assertMatchesOpenApi('authentication.sessions.index');
 });
 
 it('returns 401 to a guest', function (): void {
-    $this->getJson('/api/user/sessions')->assertUnauthorized();
+    $this->getJson('/api/user/sessions')->assertUnauthorized()->assertMatchesOpenApi('authentication.sessions.index');
 });
 
 describe('revoking from a token client', function (): void {
@@ -111,11 +111,11 @@ describe('revoking from a token client', function (): void {
         Event::fake([SessionRevoked::class]);
         $sessionId = storeWebSession($this->user);
         $otherSessionId = storeWebSession($this->user);
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
         $response = $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $sessionId));
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.sessions.destroy');
         expect(DB::table('sessions')->pluck('id')->all())->toBe([$otherSessionId])
             ->and($this->user->fresh()->remember_token)->not->toBe('old-remember-token');
         Event::assertDispatched(SessionRevoked::class, fn (SessionRevoked $event): bool => $event->sessionHash === hash('sha256', $sessionId));
@@ -123,24 +123,24 @@ describe('revoking from a token client', function (): void {
 
     it('revokes another access token', function (): void {
         $otherToken = $this->user->createToken('Tablet');
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
         $response = $this->deleteJson('/api/user/sessions/token:'.$otherToken->accessToken->getKey());
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.sessions.destroy');
         $this->assertModelMissing($otherToken->accessToken);
         $this->assertModelExists($this->currentToken->accessToken);
     });
 
     it('returns 403 "current_session" for the access token the request comes from', function (): void {
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
         $response = $this->deleteJson('/api/user/sessions/token:'.$this->currentToken->accessToken->getKey());
 
         $response->assertForbidden()->assertExactJson([
             'message' => 'Log out to end the session you are using.',
             'code' => 'current_session',
-        ]);
+        ])->assertMatchesOpenApi('authentication.sessions.destroy');
         $this->assertModelExists($this->currentToken->accessToken);
     });
 
@@ -148,11 +148,11 @@ describe('revoking from a token client', function (): void {
         $otherUser = User::factory()->create();
         $sessionId = storeWebSession($otherUser);
         $token = $otherUser->createToken('Phone');
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
         $response = $this->deleteJson('/api/user/sessions/'.$idOf($sessionId, $token->accessToken));
 
-        $response->assertNotFound()->assertJsonPath('message', 'Not Found');
+        $response->assertNotFound()->assertJsonPath('message', 'Not Found')->assertMatchesOpenApi('authentication.sessions.destroy');
         expect(DB::table('sessions')->count())->toBe(1)
             ->and(PersonalAccessToken::query()->count())->toBe(2);
     })->with([
@@ -167,7 +167,7 @@ describe('revoking from a token client', function (): void {
 
         $response = $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $sessionId));
 
-        $response->assertStatus(423);
+        $response->assertStatus(423)->assertMatchesOpenApi('authentication.sessions.destroy');
         expect(DB::table('sessions')->count())->toBe(1);
     });
 
@@ -177,11 +177,11 @@ describe('revoking from a token client', function (): void {
         $otherUsersSessionId = storeWebSession($otherUser = User::factory()->create());
         $otherToken = $this->user->createToken('Tablet');
         $otherUsersToken = $otherUser->createToken('Phone');
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
         $response = $this->deleteJson('/api/user/sessions');
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.sessions.destroy-others');
         expect(DB::table('sessions')->pluck('id')->all())->toBe([$otherUsersSessionId])
             ->and($this->user->fresh()->remember_token)->not->toBe('old-remember-token');
         $this->assertModelMissing($otherToken->accessToken);
@@ -209,7 +209,8 @@ describe('revoking from a cookie session', function (): void {
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', 'session:'.hash('sha256', $this->currentSessionId))
             ->assertJsonPath('data.0.is_current', true)
-            ->assertJsonPath('data.1.is_current', false);
+            ->assertJsonPath('data.1.is_current', false)
+            ->assertMatchesOpenApi('authentication.sessions.index');
     });
 
     it('revokes all other sessions and access tokens, keeping the current session', function (): void {
@@ -218,7 +219,7 @@ describe('revoking from a cookie session', function (): void {
 
         $response = $this->deleteJson('/api/user/sessions');
 
-        $response->assertNoContent();
+        $response->assertNoContent()->assertMatchesOpenApi('authentication.sessions.destroy-others');
         expect(DB::table('sessions')->where('user_id', $this->user->id)->pluck('id')->all())->toBe([$this->currentSessionId]);
         $this->assertModelMissing($token->accessToken);
     });
@@ -226,7 +227,7 @@ describe('revoking from a cookie session', function (): void {
     it('returns 403 "current_session" for the current session', function (): void {
         $response = $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $this->currentSessionId));
 
-        $response->assertForbidden()->assertJsonPath('code', 'current_session');
+        $response->assertForbidden()->assertJsonPath('code', 'current_session')->assertMatchesOpenApi('authentication.sessions.destroy');
         expect(DB::table('sessions')->where('id', $this->currentSessionId)->exists())->toBeTrue();
     });
 });
