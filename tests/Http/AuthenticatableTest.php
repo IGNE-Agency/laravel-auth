@@ -18,7 +18,7 @@ it('tells how the user confirms their identity', function (Closure $makeUser, ?s
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
 
-    $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod);
+    $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod)->assertMatchesOpenApi('authentication.user');
 })->with([
     'a user with a password, who may also use codes' => [fn (): User => User::factory()->create(), 'password'],
     'a user without a password' => [fn (): User => User::factory()->withoutPassword()->create(), 'login_code'],

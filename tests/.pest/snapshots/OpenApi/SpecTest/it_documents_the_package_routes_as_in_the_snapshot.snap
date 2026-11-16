@@ -58,8 +58,8 @@
         "/auth/login": {
             "post": {
                 "operationId": "authentication.login",
-                "description": "Session mode (an SPA whose requests run through Sanctum's stateful stack) logs in to the cookie session. Token mode answers with an access token instead; \"remember\" is ignored and \"device_name\" names the token (the user agent otherwise).",
-                "summary": "Log in with email and password",
+                "description": "Session mode (an SPA whose requests run through Sanctum's stateful stack) logs in to the cookie session. Token mode answers with an access token instead; \"remember\" is ignored and \"device_name\" names the token (the user agent otherwise). \"password\" is the user's password, or a login code from POST /auth/login-code for users that log in with codes.",
+                "summary": "Log in with email and password or login code",
                 "tags": [
                     "Authentication"
                 ],
@@ -130,6 +130,58 @@
                     },
                     "429": {
                         "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/auth/login-code": {
+            "post": {
+                "operationId": "authentication.login-code",
+                "description": "Emails a one-time login code when the account can log in with one. The answer is always 202 with the same body: for unknown accounts, for accounts that can't use codes and when rate-limited too, so it never reveals whether an account exists. Log in by sending the code as \"password\" to POST /auth/login.",
+                "summary": "Request a login code",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The request was accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
                     }
                 }
             }
@@ -260,7 +312,7 @@
         "/user/confirm-password": {
             "post": {
                 "operationId": "authentication.password.confirm.store",
-                "description": "Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token.",
+                "description": "Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token. \"password\" is what the user's \"confirmation_method\" says: their password, or an emailed code from POST /user/confirm-password/code.",
                 "summary": "Confirm the password",
                 "tags": [
                     "Authentication"
@@ -292,6 +344,76 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer": []
+                    },
+                    {
+                        "session": [],
+                        "xsrf": []
+                    }
+                ]
+            }
+        },
+        "/user/confirm-password/code": {
+            "post": {
+                "operationId": "authentication.password.confirm.code",
+                "description": "Emails a one-time code to a user whose \"confirmation_method\" is \"login_code\". Confirm by sending it as \"password\" to POST /user/confirm-password.",
+                "summary": "Request a confirmation code",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The code was sent",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "The user confirms with another method",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "login_code_unavailable"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
                     }
                 },
                 "security": [
@@ -471,11 +593,24 @@
                     "email": {
                         "type": "string",
                         "format": "email"
+                    },
+                    "confirmation_method": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "How the user confirms their identity on POST /user/confirm-password: with their password, or with an emailed code from POST /user/confirm-password/code. Null when they can't.",
+                        "enum": [
+                            "password",
+                            "login_code",
+                            null
+                        ]
                     }
                 },
                 "required": [
                     "id",
-                    "email"
+                    "email",
+                    "confirmation_method"
                 ],
                 "title": "Authenticatable"
             }
