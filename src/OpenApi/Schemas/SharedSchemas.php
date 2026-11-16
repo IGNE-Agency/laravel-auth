@@ -16,6 +16,7 @@ use Dedoc\Scramble\Support\Generator\Types\IntegerType;
 use Dedoc\Scramble\Support\Generator\Types\ObjectType;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Igne\Auth\Authentication\AuthenticationMethod;
+use Igne\Auth\Http\Channel;
 use Igne\Auth\Http\ErrorCode;
 
 /**
@@ -49,6 +50,49 @@ final class SharedSchemas
         }
 
         return $this->components->getSchemaReference('Authenticatable');
+    }
+
+    /**
+     * A trusted device, as the device list returns it.
+     */
+    public function trustedDevice(): Reference
+    {
+        if (! $this->components->hasSchema('TrustedDevice')) {
+            $this->components->addSchema('TrustedDevice', Schema::fromType(
+                (new ObjectType)
+                    ->addProperty('id', (new StringType)->setDescription('The device id for DELETE /user/devices/{trustedDevice}.'))
+                    ->addProperty('name', (new StringType)->setDescription('The "device_name" given at login, or the user agent.'))
+                    ->addProperty('ip_address', (new StringType)->nullable(true)->setDescription('The IP address the device passed the two-factor challenge from.'))
+                    ->addProperty('remembered', (new BooleanType)->setDescription('Whether the user asked to remember the device ("remember_device").'))
+                    ->addProperty('last_used_at', (new StringType)->format('date-time')->nullable(true))
+                    ->addProperty('expires_at', (new StringType)->format('date-time')->nullable(true)->setDescription('When the trust ends; null when it ends with the access token.'))
+                    ->addProperty('is_current', (new BooleanType)->setDescription('Whether the request comes from this device.'))
+                    ->setRequired(['id', 'name', 'ip_address', 'remembered', 'last_used_at', 'expires_at', 'is_current']),
+            ));
+        }
+
+        return $this->components->getSchemaReference('TrustedDevice');
+    }
+
+    /**
+     * A web session or access token, as the session list returns it.
+     */
+    public function activeSession(): Reference
+    {
+        if (! $this->components->hasSchema('ActiveSession')) {
+            $this->components->addSchema('ActiveSession', Schema::fromType(
+                (new ObjectType)
+                    ->addProperty('id', (new StringType)->setDescription('"session:" plus the SHA-256 hash of the session id, or "token:" plus the access token id; for DELETE /user/sessions/{session}.'))
+                    ->addProperty('type', (new StringType)->enum([Channel::Session->value, Channel::Token->value])->setDescription('"session" for a cookie session, "token" for an access token.'))
+                    ->addProperty('name', (new StringType)->setDescription('The user agent of a session, or the name of an access token.'))
+                    ->addProperty('ip_address', (new StringType)->nullable(true)->setDescription('The last IP address of a session; null for an access token.'))
+                    ->addProperty('last_active_at', (new StringType)->format('date-time')->nullable(true))
+                    ->addProperty('is_current', (new BooleanType)->setDescription('Whether the request comes from this session or access token.'))
+                    ->setRequired(['id', 'type', 'name', 'ip_address', 'last_active_at', 'is_current']),
+            ));
+        }
+
+        return $this->components->getSchemaReference('ActiveSession');
     }
 
     /**
@@ -139,6 +183,7 @@ final class SharedSchemas
             ErrorCode::LoginCodeUnavailable => 'the user confirms their identity with another method',
             ErrorCode::TwoFactorSetupRequired => 'the user must set up two-factor authentication first (POST /user/two-factor-authentication)',
             ErrorCode::TwoFactorRequired => 'the user must pass the two-factor challenge on this device first (POST /auth/two-factor-challenge)',
+            ErrorCode::CurrentSession => 'the request comes from this session or access token; log out to end it (POST /auth/logout)',
         };
     }
 

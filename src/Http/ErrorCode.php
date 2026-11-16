@@ -13,4 +13,5 @@ enum ErrorCode: string
     case LoginCodeUnavailable = 'login_code_unavailable';
     case TwoFactorSetupRequired = 'two_factor_setup_required';
     case TwoFactorRequired = 'two_factor_required';
+    case CurrentSession = 'current_session';
 }

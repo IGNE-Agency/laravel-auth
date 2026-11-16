@@ -158,8 +158,64 @@ final class AuthenticationOperations
                 summary: 'Replace the recovery codes',
                 responses: [$this->schemas->empty(200, 'New recovery codes were made')],
             ),
+            'authentication.devices.index' => new OperationSchema(
+                summary: 'List the trusted devices',
+                description: 'The devices and access tokens the user passed the two-factor challenge on, that are still trusted, newest first.',
+                responses: [$this->list('The trusted devices', $this->schemas->trustedDevice())],
+            ),
+            'authentication.devices.destroy' => new OperationSchema(
+                summary: 'Revoke a trusted device',
+                description: 'The device must pass the two-factor challenge again at its next login; when the request comes from it, at its next request.',
+                responses: [
+                    $this->schemas->empty(204, 'The device is no longer trusted'),
+                    $this->schemas->message(404, 'The user has no such device'),
+                ],
+                parameters: [
+                    Parameter::make('trustedDevice', 'path')
+                        ->description('The "id" from GET /user/devices.')
+                        ->required(true)
+                        ->setSchema(Schema::fromType(new StringType)),
+                ],
+            ),
+            'authentication.sessions.index' => new OperationSchema(
+                summary: 'List the sessions',
+                description: 'The places the user is logged in: cookie sessions (only with the "database" session driver) and access tokens. The one the request comes from is first, then the most recently active.',
+                responses: [$this->list('The sessions and access tokens', $this->schemas->activeSession())],
+            ),
+            'authentication.sessions.destroy' => new OperationSchema(
+                summary: 'Revoke a session',
+                description: 'Ends a cookie session or revokes an access token. Ending a cookie session also ends "remember me" logins on other browsers. The session or access token the request comes from can\'t be revoked here: log out instead.',
+                responses: [
+                    $this->schemas->empty(204, 'The session or access token was revoked'),
+                    $this->schemas->message(404, 'The user has no such session or access token'),
+                ],
+                parameters: [
+                    Parameter::make('session', 'path')
+                        ->description('The "id" from GET /user/sessions: "session:{hash}" or "token:{id}".')
+                        ->required(true)
+                        ->setSchema(Schema::fromType(new StringType)),
+                ],
+                errorCodes: [ErrorCode::CurrentSession],
+            ),
+            'authentication.sessions.destroy-others' => new OperationSchema(
+                summary: 'Revoke all other sessions',
+                description: 'Ends every cookie session and revokes every access token of the user, except the one the request comes from. "Remember me" logins end too.',
+                responses: [$this->schemas->empty(204, 'The other sessions and access tokens were revoked')],
+            ),
             default => null,
         };
+    }
+
+    /**
+     * A 200 response with a "data" list of the schema.
+     */
+    private function list(string $description, Type $item): Response
+    {
+        return Response::make(200)
+            ->setDescription($description)
+            ->setContent('application/json', Schema::fromType(
+                $this->object(['data' => (new ArrayType)->setItems($item)]),
+            ));
     }
 
     private function twoFactorChallenge(): OperationSchema

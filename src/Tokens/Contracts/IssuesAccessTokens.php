@@ -29,6 +29,13 @@ interface IssuesAccessTokens
     public function revokeCurrent(Authenticatable $user, string $reason = 'logout'): void;
 
     /**
+     * Revoke one access token of the user.
+     *
+     * @return bool whether the user had the token
+     */
+    public function revoke(Authenticatable $user, string $tokenId, string $reason = 'revoked'): bool;
+
+    /**
      * Revoke all access tokens of the user.
      */
     public function revokeAll(Authenticatable $user, string $reason = 'revoked'): void;

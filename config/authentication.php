@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Igne\Auth\Audit\Actions\RecordAuditLogAction;
+use Igne\Auth\Audit\Models\AuditLog;
 use Igne\Auth\Authentication\Notifications\ResetPasswordNotification;
 use Igne\Auth\Http\Resources\AuthenticatableResource;
 use Igne\Auth\LoginCodes\Actions\ConsumeLoginCodeAction;
@@ -183,6 +185,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Audit log
+    |--------------------------------------------------------------------------
+    |
+    | The package writes security events (logins, two-factor authentication,
+    | trusted devices, access tokens, sessions and passwords) to the
+    | append-only "audit_logs" table. Entries never hold credentials, and
+    | "model:prune" deletes them after "prune_after_days" (null keeps them).
+    | Extend the "record_audit_log" action to send entries elsewhere too, such
+    | as to a SIEM.
+    |
+    */
+
+    'audit' => [
+        'enabled' => true,
+        'model' => AuditLog::class,
+        'prune_after_days' => 365,
+        'actions' => [
+            'record_audit_log' => RecordAuditLogAction::class,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OpenAPI
     |--------------------------------------------------------------------------
     |
@@ -202,8 +227,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | When enabled, the package schedules "sanctum:prune-expired --hours=24"
-    | and "model:prune" for its prunable models (the login code and trusted
-    | device models) to run daily.
+    | and "model:prune" for its prunable models (the login code, trusted
+    | device and audit log models) to run daily.
     |
     */
 

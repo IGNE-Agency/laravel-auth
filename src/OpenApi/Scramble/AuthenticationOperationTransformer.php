@@ -64,8 +64,15 @@ final class AuthenticationOperationTransformer implements OperationTransformer
         $operation->summary($definition->summary);
         $operation->description($definition->description);
         $operation->setTags(['Authentication']);
+        $definedPathParameters = array_map(
+            fn (Parameter $parameter): string => $parameter->name,
+            array_filter($definition->parameters, fn (Parameter $parameter): bool => $parameter->in === 'path'),
+        );
         $operation->parameters = [
-            ...array_values(array_filter($operation->parameters, fn (Parameter|Reference $parameter): bool => $parameter instanceof Parameter && $parameter->in === 'path')),
+            ...array_values(array_filter(
+                $operation->parameters,
+                fn (Parameter|Reference $parameter): bool => $parameter instanceof Parameter && $parameter->in === 'path' && ! in_array($parameter->name, $definedPathParameters, true),
+            )),
             ...$definition->parameters,
         ];
         $operation->requestBodyObject = $definition->requestBody === null

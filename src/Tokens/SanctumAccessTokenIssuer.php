@@ -58,14 +58,35 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
             return;
         }
 
-        $this->revoke($user, $token, $reason);
+        $this->revokeToken($user, $token, $reason);
+    }
+
+    public function revoke(Authenticatable $user, string $tokenId, string $reason = 'revoked'): bool
+    {
+        $tokens = $this->tokensOf($this->tokenable($user));
+
+        // An id that can't be an integer key matches no token, and some
+        // databases reject comparing it to one.
+        if ($tokens->getModel()->getKeyType() === 'int' && ! ctype_digit($tokenId)) {
+            return false;
+        }
+
+        $token = $tokens->whereKey($tokenId)->first();
+
+        if (! $token instanceof PersonalAccessToken) {
+            return false;
+        }
+
+        $this->revokeToken($user, $token, $reason);
+
+        return true;
     }
 
     public function revokeAll(Authenticatable $user, string $reason = 'revoked'): void
     {
         $this->tokensOf($this->tokenable($user))
             ->get()
-            ->each(fn (PersonalAccessToken $token) => $this->revoke($user, $token, $reason));
+            ->each(fn (PersonalAccessToken $token) => $this->revokeToken($user, $token, $reason));
     }
 
     public function currentTokenId(Authenticatable $user): ?string
@@ -95,7 +116,7 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
     /**
      * Delete the token, which also fires its model events, and announce it.
      */
-    private function revoke(Authenticatable $user, PersonalAccessToken $token, string $reason): void
+    private function revokeToken(Authenticatable $user, PersonalAccessToken $token, string $reason): void
     {
         $tokenId = self::idOf($token);
 

@@ -16,7 +16,18 @@ final class DeviceName
     public static function of(Request $request): string
     {
         $deviceName = $request->input('device_name');
-        $name = is_string($deviceName) && trim($deviceName) !== '' ? trim($deviceName) : (string) $request->userAgent();
+
+        return is_string($deviceName) && trim($deviceName) !== ''
+            ? Str::limit(trim($deviceName), 255, '')
+            : self::fromUserAgent($request->userAgent());
+    }
+
+    /**
+     * Name a device after its user agent.
+     */
+    public static function fromUserAgent(?string $userAgent): string
+    {
+        $name = trim((string) $userAgent);
 
         return Str::limit($name !== '' ? $name : 'Unknown device', 255, '');
     }

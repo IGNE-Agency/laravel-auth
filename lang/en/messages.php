@@ -23,6 +23,7 @@ return [
     ],
     'two_factor_setup_required' => 'Set up two-factor authentication to continue.',
     'two_factor_required' => 'Confirm it is you with the code from your authenticator app to continue.',
+    'current_session' => 'Log out to end the session you are using.',
     'two_factor_reset_mail' => [
         'subject' => 'Your two-factor authentication was reset',
         'reset_by' => ':name reset the two-factor authentication of your account on :date.',

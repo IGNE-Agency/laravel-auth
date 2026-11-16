@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Igne\Auth\Audit\Models\AuditLog;
 use Igne\Auth\AuthenticationServiceProvider;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
@@ -50,13 +51,14 @@ it('prunes expired Sanctum tokens daily', function (): void {
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 
-it('prunes login codes and trusted devices daily', function (): void {
+it('prunes login codes, trusted devices and audit logs daily', function (): void {
     $events = collect(app(Schedule::class)->events())
         ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'model:prune'));
 
     expect($events)->toHaveCount(1)
         ->and($events->first()->command)->toContain(escapeshellarg(LoginCode::class))
         ->and($events->first()->command)->toContain(escapeshellarg(TrustedDevice::class))
+        ->and($events->first()->command)->toContain(escapeshellarg(AuditLog::class))
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 

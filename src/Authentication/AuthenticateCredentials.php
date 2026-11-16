@@ -64,10 +64,27 @@ final class AuthenticateCredentials
         $request->attributes->set(self::USER_ATTRIBUTE, $authenticated[0] ?? null);
 
         if ($authenticated !== null) {
-            $request->attributes->set(self::METHODS_ATTRIBUTE, [$authenticated[1]]);
+            $this->recordMethod($request, $authenticated[1]);
         }
 
         return $authenticated[0] ?? null;
+    }
+
+    /**
+     * Record the proved factor in the "authentication.methods" attribute.
+     * Fortify passes its LoginRequest, a copy of the current request, so the
+     * current request gets it too: the two-factor listeners and the audit log
+     * read it from there.
+     */
+    private function recordMethod(Request $request, AuthenticationMethod $method): void
+    {
+        $request->attributes->set(self::METHODS_ATTRIBUTE, [$method]);
+
+        $currentRequest = $this->container->bound('request') ? $this->container->make('request') : null;
+
+        if ($currentRequest instanceof Request && $currentRequest !== $request) {
+            $currentRequest->attributes->set(self::METHODS_ATTRIBUTE, [$method]);
+        }
     }
 
     /**

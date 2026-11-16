@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Igne\Auth;
 
 use Dedoc\Scramble\Scramble;
+use Igne\Auth\Audit\Listeners\AuditEventSubscriber;
+use Igne\Auth\Audit\Models\AuditLog;
 use Igne\Auth\Authentication\Actions\ResetPassword;
 use Igne\Auth\Authentication\Actions\UpdatePassword;
 use Igne\Auth\Authentication\AuthenticateCredentials;
@@ -110,6 +112,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
         $this->configureFortify();
         $this->configureTokens();
         $this->configureTwoFactor();
+        $this->configureAudit();
         $this->configureMiddleware();
         $this->configureRateLimiting();
         $this->configureRoutes();
@@ -229,6 +232,15 @@ final class AuthenticationServiceProvider extends ServiceProvider
     }
 
     /**
+     * Write the security events to the audit log. The subscriber listens
+     * after the package's own listeners, so it sees the factors they record.
+     */
+    private function configureAudit(): void
+    {
+        $this->app->make(Dispatcher::class)->subscribe(AuditEventSubscriber::class);
+    }
+
+    /**
      * Register the middleware aliases. The header session runs right after
      * where a cookie session would start, before authentication and
      * throttling; the two-factor enforcement runs in the "web" and "api"
@@ -341,6 +353,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
             $schedule->command('model:prune', ['--model' => [
                 config()->string('authentication.login_codes.model', LoginCode::class),
                 config()->string('authentication.two_factor.model', TrustedDevice::class),
+                config()->string('authentication.audit.model', AuditLog::class),
             ]])->daily();
         });
     }

@@ -49,6 +49,16 @@ Users that implement `TwoFactorAuthenticatable` get Fortify's TOTP two-factor au
 
 `php artisan authentication:two-factor:reset {user}` (and the Nova action `Igne\Auth\Nova\Actions\ResetTwoFactorAuthentication`, behind the `resetTwoFactorAuthentication` gate) resets the two-factor authentication of a user who lost their authenticator, logs them out everywhere and sends `two_factor.reset_notification`.
 
+## Devices and sessions
+
+Users manage where they are logged in themselves. `GET user/devices` lists the devices they passed the two-factor challenge on; `GET user/sessions` lists their cookie sessions (only with the `database` session driver) and access tokens, with ids such as `session:{sha256 of the session id}` and `token:{id}`, never a raw session id. Both mark the one the request comes from with `is_current`. Revoking a device, a session or all other sessions needs a recent password confirmation (`password.confirm`, 423). The current session or access token can't be revoked there (403 `current_session`): logging out ends it. Revoking a cookie session also cycles the user's remember token, so a "remember me" cookie can't log the browser back in.
+
+## Audit log
+
+The package writes security events to the append-only `audit_logs` table (`Igne\Auth\Audit\Models\AuditLog`): logins and failed logins, lockouts, logouts, login codes, two-factor events, trusted and revoked devices, created and revoked access tokens, revoked sessions and password changes and resets. Each entry has the actor and the account (subject), the channel, the factors proved in the request (`auth_methods`), the IP address, the user agent and an id shared by the request's entries. It never holds credentials: a failed login keeps only the username (`metadata.username`), and sessions and access tokens are identified by the SHA-256 hash of their id (`credential_hash`). Logins restored from a "remember me" cookie are not logged.
+
+Entries can't be changed or deleted through the model; `model:prune` deletes them after `audit.prune_after_days`. Extend `Igne\Auth\Audit\Actions\RecordAuditLogAction` and set `audit.actions.record_audit_log` to send entries elsewhere too, such as to a SIEM, or switch the log off with `audit.enabled`.
+
 ## Routes
 
 With the default prefix `api`:
@@ -70,8 +80,12 @@ With the default prefix `api`:
 | POST | `user/confirmed-two-factor-authentication` | `authentication.two-factor.confirm` |
 | GET | `user/two-factor-qr-code`, `user/two-factor-secret-key` | `authentication.two-factor.qr-code`, `.secret-key` |
 | GET, POST | `user/two-factor-recovery-codes` | `authentication.two-factor.recovery-codes`, `.regenerate-recovery-codes` |
+| GET | `user/devices` | `authentication.devices.index` |
+| DELETE | `user/devices/{trustedDevice}` | `authentication.devices.destroy` |
+| GET | `user/sessions` | `authentication.sessions.index` |
+| DELETE | `user/sessions/{session}`, `user/sessions` | `authentication.sessions.destroy`, `.destroy-others` |
 
-The password routes follow Fortify's `resetPasswords` and `updatePasswords` features, and the two-factor routes its `twoFactorAuthentication` feature. The password reset and change routes run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
+The password routes follow Fortify's `resetPasswords` and `updatePasswords` features, and the two-factor and device routes its `twoFactorAuthentication` feature. The password reset and change routes run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
 
 ## Nova
 

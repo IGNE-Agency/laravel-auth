@@ -23,6 +23,7 @@ return [
     ],
     'two_factor_setup_required' => 'Stel tweestapsverificatie in om verder te gaan.',
     'two_factor_required' => 'Bevestig met de code uit je authenticator-app dat jij het bent om verder te gaan.',
+    'current_session' => 'Log uit om de sessie te beëindigen die je nu gebruikt.',
     'two_factor_reset_mail' => [
         'subject' => 'Je tweestapsverificatie is gereset',
         'reset_by' => ':name heeft op :date de tweestapsverificatie van je account gereset.',

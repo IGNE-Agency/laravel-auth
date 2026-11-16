@@ -9,6 +9,8 @@ use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\LoginCodes\Http\Controllers\ConfirmationCodeController;
 use Igne\Auth\LoginCodes\Http\Controllers\LoginCodeController;
+use Igne\Auth\Sessions\Http\Controllers\ActiveSessionController;
+use Igne\Auth\Sessions\Http\Controllers\TrustedDeviceController;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\TwoFactor\Http\Middleware\PrepareTwoFactorStepUp;
 use Illuminate\Support\Facades\Route;
@@ -111,4 +113,24 @@ if (Features::enabled(Features::twoFactorAuthentication())) {
         Route::post('user/two-factor-recovery-codes', [RecoveryCodeController::class, 'store'])
             ->name('authentication.two-factor.regenerate-recovery-codes');
     });
+
+    Route::get('user/devices', [TrustedDeviceController::class, 'index'])
+        ->middleware('auth:sanctum')
+        ->name('authentication.devices.index');
+
+    Route::delete('user/devices/{trustedDevice}', [TrustedDeviceController::class, 'destroy'])
+        ->middleware([StartHeaderSession::class, 'auth:sanctum', 'password.confirm'])
+        ->name('authentication.devices.destroy');
 }
+
+Route::get('user/sessions', [ActiveSessionController::class, 'index'])
+    ->middleware('auth:sanctum')
+    ->name('authentication.sessions.index');
+
+Route::middleware([StartHeaderSession::class, 'auth:sanctum', 'password.confirm'])->group(static function (): void {
+    Route::delete('user/sessions/{session}', [ActiveSessionController::class, 'destroy'])
+        ->name('authentication.sessions.destroy');
+
+    Route::delete('user/sessions', [ActiveSessionController::class, 'destroyOthers'])
+        ->name('authentication.sessions.destroy-others');
+});

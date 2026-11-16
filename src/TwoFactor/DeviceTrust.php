@@ -192,16 +192,36 @@ final class DeviceTrust
             return;
         }
 
-        $currentDeviceIds = $keepCurrentOf === null ? [] : array_values(array_filter([
-            $this->rememberedDevice($keepCurrentOf, $user)?->id,
+        $currentDeviceIds = $keepCurrentOf === null ? [] : $this->currentDeviceIds($keepCurrentOf, $user);
+
+        $user->trustedDevices()->whereKeyNot($currentDeviceIds)->get()->each(
+            fn (TrustedDevice $device) => $this->revoke($user, $device, $reason),
+        );
+    }
+
+    /**
+     * Revoke one trusted device of the user.
+     */
+    public function revoke(TwoFactorAuthenticatable $user, TrustedDevice $device, string $reason): void
+    {
+        $device->delete();
+
+        $this->events->dispatch(new DeviceTrustRevoked($user, $device->id, $reason));
+    }
+
+    /**
+     * Get the ids of the user's trusted devices the request comes from: the
+     * remembered device whose device token it sends, and the trust bound to
+     * the access token it was authenticated with.
+     *
+     * @return list<string>
+     */
+    public function currentDeviceIds(Request $request, TwoFactorAuthenticatable $user): array
+    {
+        return array_values(array_unique(array_filter([
+            $this->rememberedDevice($request, $user)?->id,
             $this->deviceOfCurrentAccessToken($user)?->id,
-        ]));
-
-        $user->trustedDevices()->whereKeyNot($currentDeviceIds)->get()->each(function (TrustedDevice $device) use ($user, $reason): void {
-            $device->delete();
-
-            $this->events->dispatch(new DeviceTrustRevoked($user, $device->id, $reason));
-        });
+        ])));
     }
 
     /**
