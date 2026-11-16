@@ -7,8 +7,8 @@ use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
-    Route::middleware([AcceptJson::class, 'api', StartHeaderSession::class])->prefix('header-session')->group(function () {
+beforeEach(function (): void {
+    Route::middleware([AcceptJson::class, 'api', StartHeaderSession::class])->prefix('header-session')->group(function (): void {
         Route::get('/', fn (Request $request): array => [
             'id' => $request->session()->getId(),
             'value' => $request->session()->get('value'),
@@ -32,7 +32,7 @@ beforeEach(function () {
     });
 });
 
-it('starts a fresh session when no header is sent', function () {
+it('starts a fresh session when no header is sent', function (): void {
     $first = $this->getJson('/header-session');
     $second = $this->getJson('/header-session');
 
@@ -40,7 +40,7 @@ it('starts a fresh session when no header is sent', function () {
         ->and($second->json('id'))->not->toBe($first->json('id'));
 });
 
-it('resumes the session named by the challenge header', function () {
+it('resumes the session named by the challenge header', function (): void {
     $sessionId = $this->postJson('/header-session', ['value' => 'kept'])->json('id');
 
     $response = $this->withHeader('X-Auth-Challenge', $sessionId)->getJson('/header-session');
@@ -48,7 +48,7 @@ it('resumes the session named by the challenge header', function () {
     $response->assertOk()->assertJson(['id' => $sessionId, 'value' => 'kept']);
 });
 
-it('derives a stable session from the bearer token', function () {
+it('derives a stable session from the bearer token', function (): void {
     $sessionId = $this->withToken('token-a')->postJson('/header-session', ['value' => 'kept'])->json('id');
 
     $sameToken = $this->withToken('token-a')->getJson('/header-session');
@@ -60,7 +60,7 @@ it('derives a stable session from the bearer token', function () {
         ->and($sessionId)->not->toContain('token-a');
 });
 
-it('keeps the header session apart from the default session store', function () {
+it('keeps the header session apart from the default session store', function (): void {
     $response = $this->postJson('/header-session', ['value' => 'kept']);
 
     expect(app('session.store')->get('value'))->toBeNull();
@@ -69,13 +69,13 @@ it('keeps the header session apart from the default session store', function () 
         ->assertJson(['is_default_store' => false]);
 });
 
-it('never sets a cookie', function () {
+it('never sets a cookie', function (): void {
     $response = $this->postJson('/header-session', ['value' => 'kept']);
 
     expect($response->headers->getCookies())->toBe([]);
 });
 
-it('destroys the incoming session when the request moves to a new ID', function () {
+it('destroys the incoming session when the request moves to a new ID', function (): void {
     $incomingId = $this->postJson('/header-session', ['value' => 'kept'])->json('id');
 
     $newId = $this->withHeader('X-Auth-Challenge', $incomingId)->postJson('/header-session/regenerate')->json('id');
@@ -85,7 +85,7 @@ it('destroys the incoming session when the request moves to a new ID', function 
     $this->withHeader('X-Auth-Challenge', $newId)->getJson('/header-session')->assertJson(['value' => 'kept']);
 });
 
-it('forgets a session whose data was removed', function () {
+it('forgets a session whose data was removed', function (): void {
     $sessionId = $this->postJson('/header-session', ['value' => 'kept'])->json('id');
     $this->withHeader('X-Auth-Challenge', $sessionId)->postJson('/header-session/forget');
 
@@ -94,7 +94,7 @@ it('forgets a session whose data was removed', function () {
     $response->assertJson(['value' => null]);
 });
 
-it('expires a challenge session after challenge_lifetime_minutes', function () {
+it('expires a challenge session after challenge_lifetime_minutes', function (): void {
     $this->freezeTime();
     $sessionId = $this->postJson('/header-session', ['value' => 'kept'])->json('id');
 
@@ -104,7 +104,7 @@ it('expires a challenge session after challenge_lifetime_minutes', function () {
     $response->assertJson(['value' => null]);
 });
 
-it('leaves a session-mode request on its cookie session', function () {
+it('leaves a session-mode request on its cookie session', function (): void {
     $response = $this->fromSpa()->getJson('/header-session');
 
     $response->assertJson(['is_default_store' => true]);

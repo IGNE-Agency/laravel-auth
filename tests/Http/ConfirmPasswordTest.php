@@ -7,12 +7,12 @@ use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
+beforeEach(function (): void {
     Route::middleware([AcceptJson::class, 'api', StartHeaderSession::class, 'auth:sanctum', 'password.confirm'])
         ->get('confirmed-area', fn (): array => ['confirmed' => true]);
 });
 
-it('confirms the password of a bearer client through its header session', function () {
+it('confirms the password of a bearer client through its header session', function (): void {
     $token = $this->loginForToken(User::factory()->create());
     $this->withToken($token);
 
@@ -25,7 +25,7 @@ it('confirms the password of a bearer client through its header session', functi
     $after->assertOk();
 });
 
-it('reports the confirmation status of a bearer client', function () {
+it('reports the confirmation status of a bearer client', function (): void {
     $token = $this->loginForToken(User::factory()->create());
     $this->withToken($token);
 
@@ -37,7 +37,7 @@ it('reports the confirmation status of a bearer client', function () {
     $after->assertExactJson(['confirmed' => true]);
 });
 
-it('rejects a wrong password with 422', function () {
+it('rejects a wrong password with 422', function (): void {
     $token = $this->loginForToken(User::factory()->create());
 
     $response = $this->withToken($token)->postJson('/api/user/confirm-password', ['password' => 'wrong']);
@@ -46,7 +46,7 @@ it('rejects a wrong password with 422', function () {
     $this->getJson('/confirmed-area')->assertStatus(423);
 });
 
-it('does not share a confirmation between tokens', function () {
+it('does not share a confirmation between tokens', function (): void {
     $user = User::factory()->create();
     $confirmedToken = $this->loginForToken($user);
     $otherToken = $this->loginForToken($user);

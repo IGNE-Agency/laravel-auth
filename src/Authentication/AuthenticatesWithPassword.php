@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Igne\Auth\Authentication;
 
 use Illuminate\Notifications\Notification;
+use LogicException;
 use SensitiveParameter;
 
 /**
@@ -30,9 +31,13 @@ trait AuthenticatesWithPassword
      */
     public function sendPasswordResetNotification(#[SensitiveParameter] $token): void
     {
-        /** @var class-string<Notification> $notification */
-        $notification = config('authentication.passwords.reset_notification');
+        $notificationClass = config()->string('authentication.passwords.reset_notification');
+        $notification = class_exists($notificationClass) ? new $notificationClass($token) : null;
 
-        $this->notify(new $notification($token));
+        if (! $notification instanceof Notification) {
+            throw new LogicException("The password reset notification [{$notificationClass}] must be a notification.");
+        }
+
+        $this->notify($notification);
     }
 }

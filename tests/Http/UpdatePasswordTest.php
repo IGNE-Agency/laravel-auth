@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Support\Facades\Hash;
 
-it('changes the password of a bearer client', function () {
+it('changes the password of a bearer client', function (): void {
     $user = User::factory()->create();
     $token = $this->loginForToken($user);
 
@@ -19,7 +19,7 @@ it('changes the password of a bearer client', function () {
     expect(Hash::check('new-password', $user->fresh()->password))->toBeTrue();
 });
 
-it('checks the current password of a bearer client', function () {
+it('checks the current password of a bearer client', function (): void {
     $user = User::factory()->create();
     $token = $this->loginForToken($user);
 
@@ -34,7 +34,7 @@ it('checks the current password of a bearer client', function () {
     expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });
 
-it('forbids a user without a password with 403', function () {
+it('forbids a user without a password with 403', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $token = $user->createToken('Laptop')->plainTextToken;
 
@@ -51,7 +51,7 @@ it('forbids a user without a password with 403', function () {
     expect($user->fresh()->password)->toBeNull();
 });
 
-it('rejects a new password that does not match its confirmation with 422', function () {
+it('rejects a new password that does not match its confirmation with 422', function (): void {
     $user = User::factory()->create();
     $token = $this->loginForToken($user);
 

@@ -1,0 +1,110 @@
+<?php
+
+/*
+ * Return types of the Scramble 0.13 generator methods the package calls that
+ * Scramble declares without one. Each returns the instance it was called on,
+ * or a new instance of its class.
+ */
+
+namespace Dedoc\Scramble\Support\Generator\Types;
+
+abstract class Type {}
+
+class ObjectType extends Type
+{
+    /**
+     * @param  Type  $propertyType
+     * @return $this
+     */
+    public function addProperty(string $name, $propertyType) {}
+
+    /**
+     * @param  list<string>  $keys
+     * @return $this
+     */
+    public function setRequired(array $keys) {}
+
+    /**
+     * @return $this
+     */
+    public function additionalProperties(Type $type) {}
+}
+
+class StringType extends Type
+{
+    /**
+     * @param  int  $max
+     * @return $this
+     */
+    public function setMax($max) {}
+}
+
+class ArrayType extends Type
+{
+    /**
+     * @param  Type  $items
+     * @return $this
+     */
+    public function setItems($items) {}
+}
+
+namespace Dedoc\Scramble\Support\Generator\Combined;
+
+use Dedoc\Scramble\Support\Generator\Types\Type;
+
+class AnyOf extends Type
+{
+    /**
+     * @param  list<Type>  $items
+     * @return $this
+     */
+    public function setItems($items) {}
+}
+
+namespace Dedoc\Scramble\Support\Generator;
+
+use Dedoc\Scramble\Support\Generator\Types\Type;
+
+class Reference extends Type {}
+
+class Schema
+{
+    /**
+     * @return static
+     */
+    public static function fromType(Type $type) {}
+}
+
+class SecurityScheme
+{
+    /**
+     * @return SecurityScheme
+     */
+    public static function apiKey(string $in, string $name) {}
+
+    /**
+     * @return SecurityScheme
+     */
+    public static function http(string $scheme, string $bearerFormat = '') {}
+}
+
+class Parameter
+{
+    /**
+     * @return $this
+     */
+    public function description(string $description) {}
+}
+
+class Components
+{
+    /**
+     * @return Reference
+     */
+    public function getSchemaReference(string $schemaName) {}
+
+    /**
+     * @return string
+     */
+    public function uniqueSchemaName(string $fullName) {}
+}

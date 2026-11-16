@@ -8,8 +8,8 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\PersonalAccessToken;
 
-describe('session mode', function () {
-    it('logs the SPA into the session without issuing a token', function () {
+describe('session mode', function (): void {
+    it('logs the SPA into the session without issuing a token', function (): void {
         $user = User::factory()->create();
 
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
@@ -19,7 +19,7 @@ describe('session mode', function () {
         expect(PersonalAccessToken::count())->toBe(0);
     });
 
-    it('rejects a wrong password with 422', function () {
+    it('rejects a wrong password with 422', function (): void {
         $user = User::factory()->create();
 
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong']);
@@ -28,7 +28,7 @@ describe('session mode', function () {
         $this->assertGuest('web');
     });
 
-    it('locks the login out with 429 after five failed attempts', function () {
+    it('locks the login out with 429 after five failed attempts', function (): void {
         Event::fake([Lockout::class]);
         $user = User::factory()->create();
 
@@ -42,7 +42,7 @@ describe('session mode', function () {
         $this->assertGuest('web');
     });
 
-    it('invalidates the session on logout', function () {
+    it('invalidates the session on logout', function (): void {
         $user = User::factory()->create();
         $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 
@@ -54,8 +54,8 @@ describe('session mode', function () {
     });
 });
 
-describe('token mode', function () {
-    it('returns an access token with its expiry instead of a session', function () {
+describe('token mode', function (): void {
+    it('returns an access token with its expiry instead of a session', function (): void {
         $this->freezeTime();
         $user = User::factory()->create();
 
@@ -68,7 +68,7 @@ describe('token mode', function () {
             ->and($user->tokens()->count())->toBe(1);
     });
 
-    it('ignores remember', function () {
+    it('ignores remember', function (): void {
         $user = User::factory()->create();
 
         $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password', 'remember' => true])->assertOk();
@@ -76,7 +76,7 @@ describe('token mode', function () {
         expect($user->fresh()->getAttribute('remember_token'))->toBeNull();
     });
 
-    it('names the token after the device name, or else the user agent', function () {
+    it('names the token after the device name, or else the user agent', function (): void {
         $user = User::factory()->create();
 
         $this->loginForToken($user, input: ['device_name' => 'Ada’s phone']);
@@ -85,7 +85,7 @@ describe('token mode', function () {
         expect($user->tokens()->orderBy('id')->pluck('name')->all())->toBe(['Ada’s phone', 'TestBrowser/1.0']);
     });
 
-    it('authenticates a later request with the access token, never with a session', function () {
+    it('authenticates a later request with the access token, never with a session', function (): void {
         $user = User::factory()->create();
         $token = $this->loginForToken($user);
 
@@ -97,7 +97,7 @@ describe('token mode', function () {
         expect(auth('sanctum')->user()->currentAccessToken())->toBeInstanceOf(PersonalAccessToken::class);
     });
 
-    it('revokes only the current token on logout', function () {
+    it('revokes only the current token on logout', function (): void {
         Event::fake([AccessTokenRevoked::class]);
         $user = User::factory()->create();
         $currentToken = $this->loginForToken($user);
@@ -114,7 +114,7 @@ describe('token mode', function () {
     });
 });
 
-it('does not log in a user without a password, whatever password is sent', function (string $password, string $invalidField) {
+it('does not log in a user without a password, whatever password is sent', function (string $password, string $invalidField): void {
     $user = User::factory()->withoutPassword()->create();
 
     $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $password]);

@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 
-describe('forgot password', function () {
-    it('answers the same success for a password user, an unknown email and a passwordless user', function () {
+describe('forgot password', function (): void {
+    it('answers the same success for a password user, an unknown email and a passwordless user', function (): void {
         Notification::fake();
         $passwordUser = User::factory()->create();
         $passwordlessUser = User::factory()->withoutPassword()->create();
@@ -22,7 +22,7 @@ describe('forgot password', function () {
         Notification::assertNotSentTo($passwordlessUser, ResetPasswordNotification::class);
     });
 
-    it('answers the same success when a password user asks again too soon', function () {
+    it('answers the same success when a password user asks again too soon', function (): void {
         Notification::fake();
         $user = User::factory()->create();
         $this->postJson('/api/auth/forgot-password', ['email' => $user->email])->assertOk();
@@ -33,7 +33,7 @@ describe('forgot password', function () {
         Notification::assertSentToTimes($user, ResetPasswordNotification::class, 1);
     });
 
-    it('rejects an invalid email address with 422', function () {
+    it('rejects an invalid email address with 422', function (): void {
         Notification::fake();
 
         $response = $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email']);
@@ -42,7 +42,7 @@ describe('forgot password', function () {
         Notification::assertNothingSent();
     });
 
-    it('throttles requests for the same email address with 429', function () {
+    it('throttles requests for the same email address with 429', function (): void {
         Notification::fake();
 
         foreach (range(1, 3) as $request) {
@@ -54,8 +54,8 @@ describe('forgot password', function () {
     });
 });
 
-describe('reset password', function () {
-    it('sets the new password with a valid reset token', function () {
+describe('reset password', function (): void {
+    it('sets the new password with a valid reset token', function (): void {
         $user = User::factory()->create();
         $token = Password::broker()->createToken($user);
 
@@ -70,7 +70,7 @@ describe('reset password', function () {
         expect(Hash::check('new-password', $user->fresh()->password))->toBeTrue();
     });
 
-    it('rejects an invalid reset token with 422', function () {
+    it('rejects an invalid reset token with 422', function (): void {
         $user = User::factory()->create();
 
         $response = $this->postJson('/api/auth/reset-password', [

@@ -21,7 +21,7 @@ final class RemoveReplacedSchemasDocumentTransformer implements DocumentTransfor
     {
         $replacedNames = collect($document->paths)
             ->flatMap(fn (Path $path): array => array_values($path->operations))
-            ->flatMap(fn (Operation $operation): array => $operation->getAttribute(AuthenticationOperationTransformer::REPLACED_SCHEMAS_ATTRIBUTE, []))
+            ->flatMap(fn (Operation $operation): array => self::replacedSchemaNames($operation))
             ->unique();
 
         if ($replacedNames->isEmpty()) {
@@ -37,5 +37,17 @@ final class RemoveReplacedSchemasDocumentTransformer implements DocumentTransfor
                 $document->components->removeSchema($fullName);
             }
         }
+    }
+
+    /**
+     * Get the schema names the operation transformer recorded on the operation.
+     *
+     * @return list<string>
+     */
+    private static function replacedSchemaNames(Operation $operation): array
+    {
+        $names = $operation->getAttribute(AuthenticationOperationTransformer::REPLACED_SCHEMAS_ATTRIBUTE, []);
+
+        return is_array($names) ? array_values(array_filter($names, is_string(...))) : [];
     }
 }

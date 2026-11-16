@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Igne\Auth\Sessions;
 
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Session\Store;
 use Illuminate\Support\Arr;
@@ -49,7 +49,7 @@ final class HeaderSessionFactory
      */
     public function idForToken(string $bearerToken): string
     {
-        return substr(hash_hmac('sha256', $bearerToken, (string) $this->config->get('app.key')), 0, 40);
+        return substr(hash_hmac('sha256', $bearerToken, $this->config->string('app.key')), 0, 40);
     }
 
     /**
@@ -57,7 +57,7 @@ final class HeaderSessionFactory
      */
     public function challengeHeader(): string
     {
-        return (string) $this->config->get('authentication.header_sessions.challenge_header', 'X-Auth-Challenge');
+        return $this->config->string('authentication.header_sessions.challenge_header', 'X-Auth-Challenge');
     }
 
     /**
@@ -95,6 +95,6 @@ final class HeaderSessionFactory
 
     private function minutes(string $key): int
     {
-        return (int) $this->config->get("authentication.header_sessions.{$key}");
+        return $this->config->integer("authentication.header_sessions.{$key}");
     }
 }

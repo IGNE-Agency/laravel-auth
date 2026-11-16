@@ -29,12 +29,12 @@ it('publishes its config under the authentication-config tag', function (): void
     ]);
 });
 
-it('binds its responses although Fortify registers after the package', function () {
+it('binds its responses although Fortify registers after the package', function (): void {
     expect(app(LoginResponseContract::class))->toBeInstanceOf(LoginResponse::class)
         ->and(app(LogoutResponseContract::class))->toBeInstanceOf(LogoutResponse::class);
 });
 
-it('prunes expired Sanctum tokens daily', function () {
+it('prunes expired Sanctum tokens daily', function (): void {
     $events = collect(app(Schedule::class)->events())
         ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'sanctum:prune-expired --hours=24'));
 
@@ -42,7 +42,7 @@ it('prunes expired Sanctum tokens daily', function () {
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 
-it('schedules nothing when the schedule is off', function () {
+it('schedules nothing when the schedule is off', function (): void {
     config(['authentication.schedule' => false]);
 
     $events = collect(app(Schedule::class)->events())

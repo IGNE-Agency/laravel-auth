@@ -5,3 +5,9 @@ parameters:
     level: max
     paths:
         - src
+        - tests/Fixtures
+    databaseMigrationsPath:
+        - tests/database/migrations
+        - vendor/laravel/sanctum/database/migrations
+    stubFiles:
+        - phpstan/scramble.stub

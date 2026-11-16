@@ -18,6 +18,7 @@ use Igne\Auth\Sessions\HeaderSessionFactory;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Config\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
@@ -36,6 +37,7 @@ use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Laravel\Fortify\Fortify;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
+use LogicException;
 
 /**
  * Wires the package into Fortify and Sanctum.
@@ -53,10 +55,14 @@ final class AuthenticationServiceProvider extends ServiceProvider
         Fortify::ignoreRoutes();
 
         $this->app->scoped(IssuesAccessTokens::class, static function (Application $app): IssuesAccessTokens {
-            /** @var class-string<IssuesAccessTokens> $issuer */
-            $issuer = $app->make('config')->get('authentication.tokens.issuer');
+            $issuer = $app->make(Repository::class)->string('authentication.tokens.issuer');
+            $tokenIssuer = $app->make($issuer);
 
-            return $app->make($issuer);
+            if (! $tokenIssuer instanceof IssuesAccessTokens) {
+                throw new LogicException("The access token issuer [{$issuer}] must implement [".IssuesAccessTokens::class.'].');
+            }
+
+            return $tokenIssuer;
         });
 
         $this->app->scoped(HeaderSessionFactory::class);
@@ -120,15 +126,14 @@ final class AuthenticationServiceProvider extends ServiceProvider
     private function configureTokens(): void
     {
         Sanctum::authenticateAccessTokensUsing(static function (PersonalAccessToken $token, bool $isValid): bool {
-            $idleMinutes = config('authentication.tokens.idle_expires_in_minutes');
-
-            if (! $isValid || $idleMinutes === null) {
+            if (! $isValid || config('authentication.tokens.idle_expires_in_minutes') === null) {
                 return $isValid;
             }
 
+            $idleMinutes = config()->integer('authentication.tokens.idle_expires_in_minutes');
             $lastActivity = $token->last_used_at ?? $token->created_at;
 
-            return $lastActivity !== null && $lastActivity->greaterThan(Date::now()->subMinutes((int) $idleMinutes));
+            return $lastActivity !== null && $lastActivity->greaterThan(Date::now()->subMinutes($idleMinutes));
         });
     }
 
@@ -165,10 +170,9 @@ final class AuthenticationServiceProvider extends ServiceProvider
             return;
         }
 
-        /** @var list<string> $middleware */
-        $middleware = config('authentication.routes.middleware', []);
+        $middleware = config()->array('authentication.routes.middleware', []);
 
-        Route::prefix((string) config('authentication.routes.prefix'))
+        Route::prefix(config()->string('authentication.routes.prefix'))
             ->middleware([AcceptJson::class, ...$middleware])
             ->group(self::path('routes/authentication.php'));
     }

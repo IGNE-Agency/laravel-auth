@@ -8,8 +8,8 @@ use Carbon\CarbonInterface;
 use Igne\Auth\Events\AccessTokenIssued;
 use Igne\Auth\Events\AccessTokenRevoked;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -43,7 +43,7 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
             throw new LogicException('Sanctum did not issue an access token.');
         }
 
-        $issued = new NewAccessToken($token->plainTextToken, (string) $token->accessToken->getKey(), $expiresAt);
+        $issued = new NewAccessToken($token->plainTextToken, self::idOf($token->accessToken), $expiresAt);
 
         $this->events->dispatch(new AccessTokenIssued($user, $issued->id, $name, $expiresAt));
 
@@ -72,7 +72,7 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
     {
         $token = $this->currentToken($user);
 
-        return $token === null ? null : (string) $token->getKey();
+        return $token === null ? null : self::idOf($token);
     }
 
     public function list(Authenticatable $user): Collection
@@ -82,11 +82,11 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
             ->orderByDesc('id')
             ->get()
             ->map(static fn (PersonalAccessToken $token): AccessToken => new AccessToken(
-                id: (string) $token->getKey(),
-                name: (string) $token->getAttribute('name'),
-                createdAt: $token->getAttribute('created_at'),
-                lastUsedAt: $token->getAttribute('last_used_at'),
-                expiresAt: $token->getAttribute('expires_at'),
+                id: self::idOf($token),
+                name: $token->name,
+                createdAt: $token->created_at,
+                lastUsedAt: $token->last_used_at,
+                expiresAt: $token->expires_at,
             ))
             ->values()
             ->toBase();
@@ -97,7 +97,7 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
      */
     private function revoke(Authenticatable $user, PersonalAccessToken $token, string $reason): void
     {
-        $tokenId = (string) $token->getKey();
+        $tokenId = self::idOf($token);
 
         $token->delete();
 
@@ -118,9 +118,11 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
 
     private function expiresAt(): ?CarbonInterface
     {
-        $minutes = $this->config->get('authentication.tokens.expires_in_minutes');
+        if ($this->config->get('authentication.tokens.expires_in_minutes') === null) {
+            return null;
+        }
 
-        return $minutes === null ? null : Date::now()->addMinutes((int) $minutes);
+        return Date::now()->addMinutes($this->config->integer('authentication.tokens.expires_in_minutes'));
     }
 
     /**
@@ -128,10 +130,23 @@ class SanctumAccessTokenIssuer implements IssuesAccessTokens
      */
     private function tokensOf(Model $tokenable): Builder
     {
-        /** @var class-string<PersonalAccessToken> $model */
         $model = Sanctum::personalAccessTokenModel();
 
         return $model::query()->whereMorphedTo('tokenable', $tokenable);
+    }
+
+    /**
+     * Get the ID of a token, as the string the package passes around.
+     */
+    private static function idOf(PersonalAccessToken $token): string
+    {
+        $id = $token->getKey();
+
+        if (! is_int($id) && ! is_string($id)) {
+            throw new LogicException(sprintf('The access token model [%s] needs an integer or string key.', $token::class));
+        }
+
+        return (string) $id;
     }
 
     /**

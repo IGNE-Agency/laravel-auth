@@ -6,9 +6,9 @@ namespace Igne\Auth\Authentication;
 
 use Igne\Auth\Authentication\Contracts\PasswordAuthenticatable;
 use Illuminate\Auth\AuthManager;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Timebox;
 use Laravel\Fortify\Fortify;
@@ -44,8 +44,9 @@ final class AuthenticateCredentials
     public function __invoke(Request $request): ?Authenticatable
     {
         if ($request->attributes->has(self::USER_ATTRIBUTE)) {
-            /** @var Authenticatable|null */
-            return $request->attributes->get(self::USER_ATTRIBUTE);
+            $memoizedUser = $request->attributes->get(self::USER_ATTRIBUTE);
+
+            return $memoizedUser instanceof Authenticatable ? $memoizedUser : null;
         }
 
         $user = $this->authenticateWithPassword($request);
@@ -75,7 +76,6 @@ final class AuthenticateCredentials
 
         $provider = $this->userProvider();
 
-        /** @var Authenticatable|null */
         return $this->timebox->call(function (Timebox $timebox) use ($provider, $username, $password): ?Authenticatable {
             $user = $provider->retrieveByCredentials([Fortify::username() => $username]);
 
@@ -96,7 +96,7 @@ final class AuthenticateCredentials
             $timebox->returnEarly();
 
             return $user;
-        }, (int) $this->config->get('auth.timebox_duration', 200000));
+        }, $this->config->integer('auth.timebox_duration', 200000));
     }
 
     /**
@@ -104,8 +104,9 @@ final class AuthenticateCredentials
      */
     private function userProvider(): UserProvider
     {
-        $guard = $this->config->get('fortify.guard', 'web');
-        $provider = $this->auth->createUserProvider($this->config->get("auth.guards.{$guard}.provider"));
+        $guard = $this->config->string('fortify.guard', 'web');
+        $providerName = $this->config->get("auth.guards.{$guard}.provider");
+        $provider = $this->auth->createUserProvider(is_string($providerName) ? $providerName : null);
 
         if ($provider === null) {
             throw new LogicException("The [{$guard}] guard has no user provider.");

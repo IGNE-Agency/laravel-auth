@@ -72,7 +72,8 @@ final class ConcealPasswordResetOutcome
      */
     private function canResetPassword(string $email): bool
     {
-        $broker = $this->brokers->broker(config('fortify.passwords'));
+        $brokerName = config('fortify.passwords');
+        $broker = $this->brokers->broker(is_string($brokerName) ? $brokerName : null);
 
         if (! $broker instanceof PasswordBroker) {
             return true;

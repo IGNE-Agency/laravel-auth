@@ -47,6 +47,6 @@ final class SecuritySchemesDocumentTransformer implements DocumentTransformer
     {
         $pinned = config('authentication.openapi.session_cookie');
 
-        return is_string($pinned) && $pinned !== '' ? $pinned : (string) config('session.cookie');
+        return is_string($pinned) && $pinned !== '' ? $pinned : config()->string('session.cookie');
     }
 }

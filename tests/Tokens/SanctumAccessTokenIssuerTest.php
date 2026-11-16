@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\TransientToken;
 
-it('issues a Sanctum token and announces it', function () {
+it('issues a Sanctum token and announces it', function (): void {
     Event::fake([AccessTokenIssued::class]);
     $this->freezeTime();
     $user = User::factory()->create();
@@ -26,13 +26,13 @@ it('issues a Sanctum token and announces it', function () {
         && $event->name === 'Laptop');
 });
 
-it('refuses a user model without HasApiTokens', function () {
+it('refuses a user model without HasApiTokens', function (): void {
     $user = new UserWithoutTokens;
 
     app(IssuesAccessTokens::class)->issue($user, 'Laptop');
 })->throws(LogicException::class);
 
-it('revokes all tokens of the user and announces each', function () {
+it('revokes all tokens of the user and announces each', function (): void {
     Event::fake([AccessTokenRevoked::class]);
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
@@ -48,7 +48,7 @@ it('revokes all tokens of the user and announces each', function () {
     Event::assertDispatchedTimes(AccessTokenRevoked::class, 2);
 });
 
-it('lists the tokens of the user newest first, without their secrets', function () {
+it('lists the tokens of the user newest first, without their secrets', function (): void {
     $this->freezeTime();
     $user = User::factory()->create();
     $issuer = app(IssuesAccessTokens::class);
@@ -62,7 +62,7 @@ it('lists the tokens of the user newest first, without their secrets', function 
         ->toBe([[$phone->id, 'Phone'], [$laptop->id, 'Laptop']]);
 });
 
-it('knows the current token only when the user authenticated with one', function () {
+it('knows the current token only when the user authenticated with one', function (): void {
     $issuer = app(IssuesAccessTokens::class);
     $tokenUser = User::factory()->create();
     $token = $issuer->issue($tokenUser, 'Laptop');
@@ -75,7 +75,7 @@ it('knows the current token only when the user authenticated with one', function
         ->and($issuer->currentTokenId($sessionUser))->toBeNull();
 });
 
-it('does not revoke anything for a session user', function () {
+it('does not revoke anything for a session user', function (): void {
     Event::fake([AccessTokenRevoked::class]);
     $issuer = app(IssuesAccessTokens::class);
     $user = User::factory()->create();

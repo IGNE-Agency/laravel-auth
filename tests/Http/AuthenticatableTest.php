@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Igne\Auth\Tests\Fixtures\User;
 
-it('returns the authenticated user without a wrapper', function () {
+it('returns the authenticated user without a wrapper', function (): void {
     $user = User::factory()->create(['email' => 'ada@example.com']);
     $token = $this->loginForToken($user);
 
@@ -13,13 +13,13 @@ it('returns the authenticated user without a wrapper', function () {
     $response->assertOk()->assertExactJson(['id' => $user->id, 'email' => 'ada@example.com']);
 });
 
-it('answers a guest with a JSON 401, even without an Accept header', function () {
+it('answers a guest with a JSON 401, even without an Accept header', function (): void {
     $response = $this->get('/api/user');
 
     $response->assertUnauthorized()->assertExactJson(['message' => 'Unauthenticated.']);
 });
 
-it('answers a failed login with JSON, even without an Accept header', function () {
+it('answers a failed login with JSON, even without an Accept header', function (): void {
     $user = User::factory()->create();
 
     $response = $this->post('/api/auth/login', ['email' => $user->email, 'password' => 'wrong']);
