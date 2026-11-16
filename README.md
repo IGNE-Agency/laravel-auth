@@ -9,6 +9,8 @@ The package ships no views. Screens belong to the frontends.
 
 [Concepts](docs/concepts.md) explains the words IGNE projects use for authentication and authorization (identity, provider, space, role, permission, scope, audit log), what this package builds of them, the naming to use and avoid, and the authorization layers a request passes.
 
+The [frontend guide](docs/frontend.md) is for frontend developers: how to read the endpoints and schemas, set up a session-mode SPA or a token client, every authentication flow, and the errors to handle.
+
 ## Requirements
 
 - PHP 8.4
