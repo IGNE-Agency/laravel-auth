@@ -21,8 +21,8 @@ it('confirms a user with a password with their password, not with an authenticat
     $withCode = $this->postJson('/api/user/confirm-password', ['password' => $this->twoFactorCode($user)]);
     $withPassword = $this->postJson('/api/user/confirm-password', ['password' => 'password']);
 
-    $withCode->assertUnprocessable();
-    $withPassword->assertCreated();
+    $withCode->assertUnprocessable()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $withPassword->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 });
 
 it('confirms a user without a password with a code from their authenticator app', function (): void {
@@ -34,7 +34,7 @@ it('confirms a user without a password with a code from their authenticator app'
     $after = $this->getJson('/confirmed-area');
 
     $before->assertStatus(423);
-    $confirmation->assertCreated();
+    $confirmation->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
     $after->assertOk();
 });
 
@@ -42,13 +42,13 @@ it('rejects a wrong or reused authenticator code', function (): void {
     $user = User::factory()->withoutPassword()->withTwoFactorAuthentication()->create();
     $this->withToken($user->createToken('test')->plainTextToken);
     $code = $this->twoFactorCode($user);
-    $this->postJson('/api/user/confirm-password', ['password' => $code])->assertCreated();
+    $this->postJson('/api/user/confirm-password', ['password' => $code])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
     $reused = $this->postJson('/api/user/confirm-password', ['password' => $code]);
     $wrong = $this->postJson('/api/user/confirm-password', ['password' => '000000']);
 
-    $reused->assertUnprocessable();
-    $wrong->assertUnprocessable();
+    $reused->assertUnprocessable()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $wrong->assertUnprocessable()->assertMatchesOpenApi('authentication.password.confirm.store');
 });
 
 it('sends no emailed code to a user who confirms with an authenticator code', function (): void {
@@ -56,5 +56,5 @@ it('sends no emailed code to a user who confirms with an authenticator code', fu
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->postJson('/api/user/confirm-password/code');
 
-    $response->assertForbidden()->assertJsonPath('code', 'login_code_unavailable');
+    $response->assertForbidden()->assertJsonPath('code', 'login_code_unavailable')->assertMatchesOpenApi('authentication.password.confirm.code');
 });

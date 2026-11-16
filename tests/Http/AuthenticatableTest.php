@@ -25,7 +25,7 @@ it('tells whether the user set up two-factor authentication and must have it', f
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
 
-    $response->assertOk()->assertJson(['two_factor_enabled' => true, 'two_factor_required' => true]);
+    $response->assertOk()->assertJson(['two_factor_enabled' => true, 'two_factor_required' => true])->assertMatchesOpenApi('authentication.user');
 });
 
 it('tells how the user confirms their identity', function (Closure $makeUser, ?string $confirmationMethod): void {

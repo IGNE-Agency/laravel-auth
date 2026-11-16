@@ -14,11 +14,11 @@ it('revokes the other devices when the user disables two-factor authentication',
     $currentDevice = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('current-secret')->create();
     $otherDevice = TrustedDevice::factory()->for($user, 'authenticatable')->create();
     $this->withToken($user->createToken('test')->plainTextToken)->withHeader('X-Two-Factor-Device', $currentDevice->id.'|current-secret');
-    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
 
     $response = $this->deleteJson('/api/user/two-factor-authentication');
 
-    $response->assertOk();
+    $response->assertOk()->assertMatchesOpenApi('authentication.two-factor.disable');
     expect(TrustedDevice::pluck('id')->all())->toBe([$currentDevice->id]);
     Event::assertDispatched(DeviceTrustRevoked::class, fn (DeviceTrustRevoked $event): bool => $event->deviceId === $otherDevice->id && $event->reason === 'two_factor_disabled');
 });
@@ -36,7 +36,7 @@ it('revokes the other devices when the user changes their password', function ()
             'password_confirmation' => 'new-password',
         ]);
 
-    $response->assertOk();
+    $response->assertOk()->assertMatchesOpenApi('authentication.user-password.update');
     expect(TrustedDevice::pluck('id')->all())->toBe([$currentDevice->id]);
 });
 
@@ -52,6 +52,6 @@ it('revokes all devices when the user resets their password', function (): void 
         'password_confirmation' => 'new-password',
     ]);
 
-    $response->assertOk();
+    $response->assertOk()->assertMatchesOpenApi('authentication.password.update');
     expect(TrustedDevice::pluck('id')->all())->toBe([$otherUsersDevice->id]);
 });

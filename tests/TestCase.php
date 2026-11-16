@@ -158,6 +158,7 @@ abstract class TestCase extends Orchestra
             ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password', ...$input])
             ->assertOk()
             ->assertJson(['two_factor' => true])
+            ->assertMatchesOpenApi('authentication.login')
             ->json('challenge');
 
         $this->forgetAuthenticatedUsers();
@@ -166,13 +167,16 @@ abstract class TestCase extends Orchestra
     }
 
     /**
-     * Pass the two-factor challenge of a bearer-token client.
+     * Pass the two-factor challenge of a bearer-token client, and check the
+     * answer against the OpenAPI document.
      *
      * @param  array<string, mixed>  $input  the code, or a recovery code, and options
      */
     protected function passChallenge(string $challenge, array $input): TestResponse
     {
-        $response = $this->withHeader('X-Auth-Challenge', $challenge)->postJson('/api/auth/two-factor-challenge', $input);
+        $response = $this->withHeader('X-Auth-Challenge', $challenge)
+            ->postJson('/api/auth/two-factor-challenge', $input)
+            ->assertMatchesOpenApi('authentication.two-factor.challenge');
 
         $this->flushHeaders();
         $this->forgetAuthenticatedUsers();
