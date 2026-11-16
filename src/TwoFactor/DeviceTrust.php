@@ -12,13 +12,14 @@ use Igne\Auth\Http\DeviceName;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
 use Igne\Auth\TwoFactor\Contracts\TwoFactorAuthenticatable;
 use Igne\Auth\TwoFactor\Models\TrustedDevice;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Cookie\QueueingFactory as CookieJar;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * Decides which devices skip the two-factor challenge, and trusts a device
@@ -115,7 +116,7 @@ final class DeviceTrust
 
         if ($days === null) {
             $request->session()->put(self::SESSION_KEY, [
-                'user' => (string) $user->getAuthIdentifier(),
+                'user' => self::userId($user),
                 'enrollment' => $this->enrollmentOf($user),
                 'verified_at' => Date::now()->getTimestamp(),
             ]);
@@ -237,7 +238,7 @@ final class DeviceTrust
         $trust = $request->session()->get(self::SESSION_KEY);
 
         return is_array($trust)
-            && ($trust['user'] ?? null) === (string) $user->getAuthIdentifier()
+            && ($trust['user'] ?? null) === self::userId($user)
             && is_string($trust['enrollment'] ?? null)
             && hash_equals($trust['enrollment'], $this->enrollmentOf($user))
             && is_int($trust['verified_at'] ?? null)
@@ -335,7 +336,6 @@ final class DeviceTrust
 
     private function newDevice(Request $request, TwoFactorAuthenticatable $user, bool $remembered, ?CarbonInterface $expiresAt): TrustedDevice
     {
-        /** @var TrustedDevice */
         return $user->trustedDevices()->make([
             'name' => DeviceName::of($request),
             'ip_address' => $request->ip(),
@@ -365,21 +365,40 @@ final class DeviceTrust
     }
 
     /**
+     * Get the user's identifier, as the string the session flag stores.
+     */
+    private static function userId(TwoFactorAuthenticatable $user): string
+    {
+        $userId = $user->getAuthIdentifier();
+
+        if (! is_int($userId) && ! is_string($userId)) {
+            throw new LogicException(sprintf('The user model [%s] needs an integer or string identifier.', $user::class));
+        }
+
+        return (string) $userId;
+    }
+
+    /**
      * @return class-string<TrustedDevice>
      */
     private function model(): string
     {
-        /** @var class-string<TrustedDevice> */
-        return $this->config->get('authentication.two_factor.model', TrustedDevice::class);
+        $model = $this->config->string('authentication.two_factor.model', TrustedDevice::class);
+
+        if (! is_a($model, TrustedDevice::class, true)) {
+            throw new LogicException("The trusted device model [{$model}] must extend [".TrustedDevice::class.'].');
+        }
+
+        return $model;
     }
 
     private function cookieName(): string
     {
-        return (string) $this->config->get('authentication.two_factor.device_trust.cookie', 'two_factor_device');
+        return $this->config->string('authentication.two_factor.device_trust.cookie', 'two_factor_device');
     }
 
     private function headerName(): string
     {
-        return (string) $this->config->get('authentication.two_factor.device_trust.header', 'X-Two-Factor-Device');
+        return $this->config->string('authentication.two_factor.device_trust.header', 'X-Two-Factor-Device');
     }
 }

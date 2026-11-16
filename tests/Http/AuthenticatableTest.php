@@ -19,7 +19,7 @@ it('returns the authenticated user without a wrapper', function (): void {
     ])->assertMatchesOpenApi('authentication.user');
 });
 
-it('tells whether the user set up two-factor authentication and must have it', function () {
+it('tells whether the user set up two-factor authentication and must have it', function (): void {
     config(['authentication.two_factor.required' => true]);
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
@@ -36,7 +36,7 @@ it('tells how the user confirms their identity', function (Closure $makeUser, ?s
     $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod)->assertMatchesOpenApi('authentication.user');
 })->with([
     'a user with a password, who may also use codes' => [fn (): User => User::factory()->create(), 'password'],
-    'a user without a password, with two-factor authentication' => [fn () => User::factory()->withoutPassword()->withTwoFactorAuthentication()->create(), 'totp'],
+    'a user without a password, with two-factor authentication' => [fn (): User => User::factory()->withoutPassword()->withTwoFactorAuthentication()->create(), 'totp'],
     'a user without a password' => [fn (): User => User::factory()->withoutPassword()->create(), 'login_code'],
     'a user with neither' => [fn (): User => User::factory()->withoutPassword()->withoutLoginCodes()->create(), null],
 ]);

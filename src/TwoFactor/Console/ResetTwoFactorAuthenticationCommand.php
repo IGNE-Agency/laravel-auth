@@ -8,6 +8,7 @@ use Igne\Auth\Authentication\UserProviderResolver;
 use Igne\Auth\TwoFactor\Actions\ResetTwoFactorAuthentication;
 use Igne\Auth\TwoFactor\Contracts\TwoFactorAuthenticatable;
 use Illuminate\Console\Command;
+use LogicException;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
@@ -29,7 +30,12 @@ final class ResetTwoFactorAuthenticationCommand extends Command
 
     public function handle(UserProviderResolver $users, ResetTwoFactorAuthentication $reset): int
     {
-        $identifier = (string) $this->argument('user');
+        $identifier = $this->argument('user');
+
+        if (! is_string($identifier)) {
+            throw new LogicException('The [user] argument must be a single value.');
+        }
+
         $user = $users->findByUsername($identifier) ?? $users->resolve()->retrieveById($identifier);
 
         if (! $user instanceof TwoFactorAuthenticatable) {

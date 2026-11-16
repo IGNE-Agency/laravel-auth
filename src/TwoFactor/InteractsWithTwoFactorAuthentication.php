@@ -7,6 +7,7 @@ namespace Igne\Auth\TwoFactor;
 use Igne\Auth\TwoFactor\Models\TrustedDevice;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use LogicException;
 
 /**
  * The default implementation of the TwoFactorAuthenticatable contract. It
@@ -24,7 +25,7 @@ trait InteractsWithTwoFactorAuthentication
      */
     public function requiresTwoFactorAuthentication(): bool
     {
-        return (bool) config('authentication.two_factor.required', true);
+        return config()->boolean('authentication.two_factor.required', true);
     }
 
     /**
@@ -35,8 +36,11 @@ trait InteractsWithTwoFactorAuthentication
      */
     public function trustedDevices(): MorphMany
     {
-        /** @var class-string<TrustedDevice> $model */
-        $model = config('authentication.two_factor.model', TrustedDevice::class);
+        $model = config()->string('authentication.two_factor.model', TrustedDevice::class);
+
+        if (! is_a($model, TrustedDevice::class, true)) {
+            throw new LogicException("The trusted device model [{$model}] must extend [".TrustedDevice::class.'].');
+        }
 
         return $this->morphMany($model, 'authenticatable');
     }

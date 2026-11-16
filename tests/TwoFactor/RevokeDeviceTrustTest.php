@@ -8,7 +8,7 @@ use Igne\Auth\TwoFactor\Models\TrustedDevice;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Password;
 
-it('revokes the other devices when the user disables two-factor authentication', function () {
+it('revokes the other devices when the user disables two-factor authentication', function (): void {
     Event::fake([DeviceTrustRevoked::class]);
     $user = User::factory()->withTwoFactorAuthentication()->create();
     $currentDevice = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('current-secret')->create();
@@ -23,7 +23,7 @@ it('revokes the other devices when the user disables two-factor authentication',
     Event::assertDispatched(DeviceTrustRevoked::class, fn (DeviceTrustRevoked $event): bool => $event->deviceId === $otherDevice->id && $event->reason === 'two_factor_disabled');
 });
 
-it('revokes the other devices when the user changes their password', function () {
+it('revokes the other devices when the user changes their password', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
     $currentDevice = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('current-secret')->create();
     TrustedDevice::factory()->for($user, 'authenticatable')->create();
@@ -40,7 +40,7 @@ it('revokes the other devices when the user changes their password', function ()
     expect(TrustedDevice::pluck('id')->all())->toBe([$currentDevice->id]);
 });
 
-it('revokes all devices when the user resets their password', function () {
+it('revokes all devices when the user resets their password', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
     TrustedDevice::factory()->for($user, 'authenticatable')->count(2)->create();
     $otherUsersDevice = TrustedDevice::factory()->for(User::factory()->create(), 'authenticatable')->create();

@@ -23,7 +23,7 @@ function storeDatabaseSession(int $userId): void
     ]);
 }
 
-it('disables two-factor authentication and logs the user out everywhere from the console', function () {
+it('disables two-factor authentication and logs the user out everywhere from the console', function (): void {
     config(['session.driver' => 'database']);
     Notification::fake();
     $user = User::factory()->withTwoFactorAuthentication()->create(['remember_token' => 'old-remember-token']);
@@ -51,7 +51,7 @@ it('disables two-factor authentication and logs the user out everywhere from the
     Notification::assertSentTo($user, TwoFactorAuthenticationResetNotification::class, fn (TwoFactorAuthenticationResetNotification $notification): bool => $notification->resetBy === null);
 });
 
-it('finds the user for the command by id too, and fails for an unknown user', function () {
+it('finds the user for the command by id too, and fails for an unknown user', function (): void {
     Notification::fake();
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
@@ -61,7 +61,7 @@ it('finds the user for the command by id too, and fails for an unknown user', fu
     expect($user->fresh()->two_factor_secret)->toBeNull();
 });
 
-it('announces who reset it, and sends the configured notification', function () {
+it('announces who reset it, and sends the configured notification', function (): void {
     Event::fake([TwoFactorAuthenticationReset::class]);
     $admin = User::factory()->create();
     $user = User::factory()->withTwoFactorAuthentication()->create();
@@ -71,7 +71,7 @@ it('announces who reset it, and sends the configured notification', function () 
     Event::assertDispatched(TwoFactorAuthenticationReset::class, fn (TwoFactorAuthenticationReset $event): bool => $event->user->is($user) && $event->resetBy?->is($admin) === true);
 });
 
-it('sends no notification when none is configured', function () {
+it('sends no notification when none is configured', function (): void {
     config(['authentication.two_factor.reset_notification' => null]);
     Notification::fake();
     $user = User::factory()->withTwoFactorAuthentication()->create();
@@ -81,7 +81,7 @@ it('sends no notification when none is configured', function () {
     Notification::assertNothingSent();
 });
 
-it('mails the reset with the default notification', function () {
+it('mails the reset with the default notification', function (): void {
     $resetAt = now();
     $admin = User::factory()->make(['name' => 'Ada']);
 
@@ -93,7 +93,7 @@ it('mails the reset with the default notification', function () {
         ->and($fromConsole->introLines[0])->toBe("The two-factor authentication of your account was reset on {$resetAt->toDayDateTimeString()}.");
 });
 
-it('denies resetting the two-factor authentication of others by default', function () {
+it('denies resetting the two-factor authentication of others by default', function (): void {
     $admin = User::factory()->create();
     $user = User::factory()->withTwoFactorAuthentication()->create();
 

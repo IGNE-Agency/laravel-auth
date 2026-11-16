@@ -8,13 +8,13 @@ use Igne\Auth\Tests\Fixtures\User;
 use Igne\Auth\TwoFactor\Http\Middleware\EnsureTwoFactorAuthenticated;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
+beforeEach(function (): void {
     Route::middleware([AcceptJson::class, 'api', StartHeaderSession::class, 'auth:sanctum', 'password.confirm'])
         ->get('confirmed-area', fn (): array => ['confirmed' => true])
         ->withoutMiddleware(EnsureTwoFactorAuthenticated::class);
 });
 
-it('confirms a user with a password with their password, not with an authenticator code', function () {
+it('confirms a user with a password with their password, not with an authenticator code', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
     $this->withToken($user->createToken('test')->plainTextToken);
 
@@ -25,7 +25,7 @@ it('confirms a user with a password with their password, not with an authenticat
     $withPassword->assertCreated();
 });
 
-it('confirms a user without a password with a code from their authenticator app', function () {
+it('confirms a user without a password with a code from their authenticator app', function (): void {
     $user = User::factory()->withoutPassword()->withTwoFactorAuthentication()->create();
     $this->withToken($user->createToken('test')->plainTextToken);
 
@@ -38,7 +38,7 @@ it('confirms a user without a password with a code from their authenticator app'
     $after->assertOk();
 });
 
-it('rejects a wrong or reused authenticator code', function () {
+it('rejects a wrong or reused authenticator code', function (): void {
     $user = User::factory()->withoutPassword()->withTwoFactorAuthentication()->create();
     $this->withToken($user->createToken('test')->plainTextToken);
     $code = $this->twoFactorCode($user);
@@ -51,7 +51,7 @@ it('rejects a wrong or reused authenticator code', function () {
     $wrong->assertUnprocessable();
 });
 
-it('sends no emailed code to a user who confirms with an authenticator code', function () {
+it('sends no emailed code to a user who confirms with an authenticator code', function (): void {
     $user = User::factory()->withoutPassword()->withTwoFactorAuthentication()->create();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->postJson('/api/user/confirm-password/code');

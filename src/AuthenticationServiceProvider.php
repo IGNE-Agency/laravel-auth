@@ -65,7 +65,6 @@ use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Laravel\Fortify\Events\TwoFactorAuthenticationDisabled;
 use Laravel\Fortify\Events\ValidTwoFactorAuthenticationCodeProvided;
 use Laravel\Fortify\Fortify;
-use Laravel\Nova\Nova;
 use Laravel\Nova\NovaCoreServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
@@ -200,7 +199,13 @@ final class AuthenticationServiceProvider extends ServiceProvider
         // may swap Sanctum's token model while it boots.
         $this->app->booted(static function () use ($events): void {
             $events->listen('eloquent.deleted: '.Sanctum::personalAccessTokenModel(), static function (PersonalAccessToken $token): void {
-                Container::getInstance()->make(DeviceTrust::class)->forgetAccessToken((string) $token->getKey());
+                $tokenId = $token->getKey();
+
+                if (! is_int($tokenId) && ! is_string($tokenId)) {
+                    throw new LogicException(sprintf('The access token model [%s] needs an integer or string key.', $token::class));
+                }
+
+                Container::getInstance()->make(DeviceTrust::class)->forgetAccessToken((string) $tokenId);
             });
         });
 
@@ -334,8 +339,8 @@ final class AuthenticationServiceProvider extends ServiceProvider
 
             $schedule->command('sanctum:prune-expired', ['--hours' => 24])->daily();
             $schedule->command('model:prune', ['--model' => [
-                config('authentication.login_codes.model', LoginCode::class),
-                config('authentication.two_factor.model', TrustedDevice::class),
+                config()->string('authentication.login_codes.model', LoginCode::class),
+                config()->string('authentication.two_factor.model', TrustedDevice::class),
             ]])->daily();
         });
     }
@@ -346,7 +351,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
      */
     private function configureNova(): void
     {
-        if (! class_exists(Nova::class) || ! $this->app instanceof FoundationApplication || ! $this->app->providerIsLoaded(NovaCoreServiceProvider::class)) {
+        if (! class_exists(NovaCoreServiceProvider::class) || ! $this->app instanceof FoundationApplication || ! $this->app->providerIsLoaded(NovaCoreServiceProvider::class)) {
             return;
         }
 

@@ -199,9 +199,10 @@ abstract class TestCase extends Orchestra
      */
     protected function recoveryCode(User $user): string
     {
-        /** @var list<string> $codes */
-        $codes = $user->recoveryCodes();
+        $recoveryCode = $user->recoveryCodes()[0] ?? null;
 
-        return $codes[0];
+        Assert::assertIsString($recoveryCode, 'The user has no recovery codes.');
+
+        return $recoveryCode;
     }
 }

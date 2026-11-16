@@ -7,12 +7,12 @@ use Igne\Auth\Tests\Fixtures\User;
 use Igne\Auth\TwoFactor\Models\TrustedDevice;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
+beforeEach(function (): void {
     Route::middleware([AcceptJson::class, 'api', 'auth:sanctum'])->get('protected-area', fn (): array => ['protected' => true]);
 });
 
-describe('session mode', function () {
-    it('trusts the session with a flag after the challenge, without a device cookie', function () {
+describe('session mode', function (): void {
+    it('trusts the session with a flag after the challenge, without a device cookie', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
 
         $login = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
@@ -25,7 +25,7 @@ describe('session mode', function () {
         expect(TrustedDevice::count())->toBe(0);
     });
 
-    it('remembers the device for 30 days with remember_device', function () {
+    it('remembers the device for 30 days with remember_device', function (): void {
         $this->freezeSecond();
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
@@ -41,7 +41,7 @@ describe('session mode', function () {
             ->and($device->authenticatable_id)->toBe($user->id);
     });
 
-    it('trusts the device for "expires_in_days" without remember_device', function () {
+    it('trusts the device for "expires_in_days" without remember_device', function (): void {
         $this->freezeSecond();
         config(['authentication.two_factor.device_trust.expires_in_days' => 7]);
         $user = User::factory()->withTwoFactorAuthentication()->create();
@@ -55,7 +55,7 @@ describe('session mode', function () {
             ->and($device->expires_at->equalTo(now()->addDays(7)))->toBeTrue();
     });
 
-    it('skips the challenge on a device remembered by its cookie', function () {
+    it('skips the challenge on a device remembered by its cookie', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $device = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->create();
 
@@ -69,8 +69,8 @@ describe('session mode', function () {
     });
 });
 
-describe('token mode', function () {
-    it('answers the login with a challenge, and the challenge with an access token', function () {
+describe('token mode', function (): void {
+    it('answers the login with a challenge, and the challenge with an access token', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
 
         $challenge = $this->loginForChallenge($user);
@@ -86,7 +86,7 @@ describe('token mode', function () {
             ->and(TrustedDevice::sole()->token_hash)->toBeNull();
     });
 
-    it('gives a device token with remember_device, which skips the next challenge', function () {
+    it('gives a device token with remember_device, which skips the next challenge', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $deviceToken = (string) $this->passChallenge($this->loginForChallenge($user), [
             'code' => $this->twoFactorCode($user),
@@ -104,7 +104,7 @@ describe('token mode', function () {
         $protected->assertOk();
     });
 
-    it('accepts a challenge only once', function () {
+    it('accepts a challenge only once', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $challenge = $this->loginForChallenge($user);
         $this->passChallenge($challenge, ['code' => $this->twoFactorCode($user)])->assertOk();
@@ -114,7 +114,7 @@ describe('token mode', function () {
         $response->assertUnprocessable()->assertJsonValidationErrorFor('code');
     });
 
-    it('expires a challenge after "challenge_lifetime_minutes"', function () {
+    it('expires a challenge after "challenge_lifetime_minutes"', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $challenge = $this->loginForChallenge($user);
         $this->travel(11)->minutes();
@@ -124,7 +124,7 @@ describe('token mode', function () {
         $response->assertUnprocessable()->assertJsonValidationErrorFor('code');
     });
 
-    it('rejects a wrong code with 422 and keeps the challenge open', function () {
+    it('rejects a wrong code with 422 and keeps the challenge open', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $challenge = $this->loginForChallenge($user);
 
@@ -135,7 +135,7 @@ describe('token mode', function () {
         $right->assertOk();
     });
 
-    it('throttles the challenge per challenged user', function () {
+    it('throttles the challenge per challenged user', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $otherUser = User::factory()->withTwoFactorAuthentication()->create();
         $challenge = $this->loginForChallenge($user);
@@ -152,8 +152,8 @@ describe('token mode', function () {
     });
 });
 
-describe('trusted devices', function () {
-    it('skips the challenge on a device remembered by its header, and trusts the new token', function () {
+describe('trusted devices', function (): void {
+    it('skips the challenge on a device remembered by its header, and trusts the new token', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $device = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->create();
 
@@ -167,7 +167,7 @@ describe('trusted devices', function () {
         $protected->assertOk();
     });
 
-    it('challenges again on an expired device, or with a wrong secret', function (Closure $deviceToken) {
+    it('challenges again on an expired device, or with a wrong secret', function (Closure $deviceToken): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
 
         $response = $this->withHeader('X-Two-Factor-Device', $deviceToken($user))
@@ -181,7 +181,7 @@ describe('trusted devices', function () {
         'a device of another user' => [fn (): string => TrustedDevice::factory()->for(User::factory()->create(), 'authenticatable')->withSecret('device-secret')->create()->id.'|device-secret'],
     ]);
 
-    it('extends the expiry on use with "extend_on_use", up to 365 days after the verification', function (int $verifiedDaysAgo, int $expectedDaysLeft) {
+    it('extends the expiry on use with "extend_on_use", up to 365 days after the verification', function (int $verifiedDaysAgo, int $expectedDaysLeft): void {
         $this->freezeSecond();
         config(['authentication.two_factor.device_trust.extend_on_use' => true]);
         $user = User::factory()->withTwoFactorAuthentication()->create();
@@ -202,7 +202,7 @@ describe('trusted devices', function () {
         'capped at 365 days after the verification' => [350, 15],
     ]);
 
-    it('keeps the expiry without "extend_on_use"', function () {
+    it('keeps the expiry without "extend_on_use"', function (): void {
         $this->freezeSecond();
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $device = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->create(['expires_at' => now()->addDay()]);
@@ -215,7 +215,7 @@ describe('trusted devices', function () {
         expect($device->fresh()->expires_at->equalTo(now()->addDay()))->toBeTrue();
     });
 
-    it('ends the trust of an access token with the token, but keeps a remembered device', function (bool $rememberDevice, int $devicesLeft) {
+    it('ends the trust of an access token with the token, but keeps a remembered device', function (bool $rememberDevice, int $devicesLeft): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $token = (string) $this->passChallenge($this->loginForChallenge($user), [
             'code' => $this->twoFactorCode($user),
@@ -231,7 +231,7 @@ describe('trusted devices', function () {
         'a remembered device' => [true, 1],
     ]);
 
-    it('never remembers a device after a recovery code', function () {
+    it('never remembers a device after a recovery code', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $recoveryCode = $this->recoveryCode($user);
 
@@ -242,7 +242,7 @@ describe('trusted devices', function () {
             ->and($user->fresh()->recoveryCodes())->not->toContain($recoveryCode);
     });
 
-    it('trusts only the session after a recovery code in session mode', function () {
+    it('trusts only the session after a recovery code in session mode', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 

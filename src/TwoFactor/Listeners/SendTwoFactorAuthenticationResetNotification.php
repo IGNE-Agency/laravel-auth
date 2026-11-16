@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Igne\Auth\TwoFactor\Listeners;
 
 use Igne\Auth\Events\TwoFactorAuthenticationReset;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Notifications\Notification;
 use LogicException;
 
@@ -24,14 +24,12 @@ final class SendTwoFactorAuthenticationResetNotification
      */
     public function handle(TwoFactorAuthenticationReset $event): void
     {
-        /** @var class-string|null $class */
-        $class = $this->config->get('authentication.two_factor.reset_notification');
-
-        if ($class === null || ! method_exists($event->user, 'notify')) {
+        if ($this->config->get('authentication.two_factor.reset_notification') === null || ! method_exists($event->user, 'notify')) {
             return;
         }
 
-        $notification = new $class($event->resetBy, $event->resetAt);
+        $class = $this->config->string('authentication.two_factor.reset_notification');
+        $notification = class_exists($class) ? new $class($event->resetBy, $event->resetAt) : null;
 
         if (! $notification instanceof Notification) {
             throw new LogicException("The two-factor reset notification [{$class}] must be a notification.");

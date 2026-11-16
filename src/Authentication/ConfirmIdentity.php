@@ -76,13 +76,15 @@ final class ConfirmIdentity
      */
     private function verifyTwoFactorCode(TwoFactorAuthenticatable $user, #[SensitiveParameter] string $code): bool
     {
-        $secret = data_get($user, 'two_factor_secret');
+        $encryptedSecret = data_get($user, 'two_factor_secret');
 
-        if (! is_string($secret) || $secret === '') {
+        if (! is_string($encryptedSecret) || $encryptedSecret === '') {
             return false;
         }
 
-        return (bool) $this->twoFactor->verify(Fortify::currentEncrypter()->decrypt($secret), $code);
+        $secret = Fortify::currentEncrypter()->decrypt($encryptedSecret);
+
+        return is_string($secret) && (bool) $this->twoFactor->verify($secret, $code);
     }
 
     private function consumeConfirmationCode(LoginCodeAuthenticatable $user, #[SensitiveParameter] string $code): bool

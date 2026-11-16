@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Igne\Auth\TwoFactor;
 
 use Igne\Auth\TwoFactor\Exceptions\InvalidConfigurationException;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 
 /**
  * How long a device stays trusted after the user verified two-factor
@@ -43,7 +43,7 @@ final readonly class DeviceTrustLifetime
         return new self(
             $expiresInDays === 'session' ? null : self::days('expires_in_days', $expiresInDays, allowsSession: true),
             self::days('remember_expires_in_days', $config->get('authentication.two_factor.device_trust.remember_expires_in_days', 30), allowsSession: false),
-            (bool) $config->get('authentication.two_factor.device_trust.extend_on_use', false),
+            $config->boolean('authentication.two_factor.device_trust.extend_on_use', false),
         );
     }
 

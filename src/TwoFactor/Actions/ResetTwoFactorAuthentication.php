@@ -9,8 +9,8 @@ use Igne\Auth\Events\TwoFactorAuthenticationReset;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
 use Igne\Auth\TwoFactor\Contracts\TwoFactorAuthenticatable;
 use Igne\Auth\TwoFactor\DeviceTrust;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Facades\Date;
@@ -66,7 +66,7 @@ final class ResetTwoFactorAuthentication
         $connection = $this->config->get('session.connection');
 
         $this->database->connection(is_string($connection) ? $connection : null)
-            ->table((string) $this->config->get('session.table', 'sessions'))
+            ->table($this->config->string('session.table', 'sessions'))
             ->where('user_id', $user->getAuthIdentifier())
             ->delete();
     }

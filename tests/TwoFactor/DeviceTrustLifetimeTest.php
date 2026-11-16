@@ -6,7 +6,7 @@ use Igne\Auth\AuthenticationServiceProvider;
 use Igne\Auth\TwoFactor\DeviceTrustLifetime;
 use Igne\Auth\TwoFactor\Exceptions\InvalidConfigurationException;
 
-it('reads the lifetime of device trust from the config', function () {
+it('reads the lifetime of device trust from the config', function (): void {
     config(['authentication.two_factor.device_trust' => [
         'expires_in_days' => '7',
         'remember_expires_in_days' => 90,
@@ -20,17 +20,17 @@ it('reads the lifetime of device trust from the config', function () {
         ->and($lifetime->extendOnUse)->toBeTrue();
 });
 
-it('trusts for the session by default', function () {
+it('trusts for the session by default', function (): void {
     $lifetime = DeviceTrustLifetime::fromConfig(config());
 
     expect($lifetime->daysFor(remember: false))->toBeNull()
         ->and($lifetime->daysFor(remember: true))->toBe(30);
 });
 
-it('rejects a lifetime that is not "session" or 1 to 365 days', function (string $key, mixed $value) {
+it('rejects a lifetime that is not "session" or 1 to 365 days', function (string $key, mixed $value): void {
     config(["authentication.two_factor.device_trust.{$key}" => $value]);
 
-    expect(fn () => DeviceTrustLifetime::fromConfig(config()))->toThrow(InvalidConfigurationException::class);
+    expect(fn (): DeviceTrustLifetime => DeviceTrustLifetime::fromConfig(config()))->toThrow(InvalidConfigurationException::class);
 })->with([
     'null' => ['expires_in_days', null],
     '366 days' => ['expires_in_days', 366],
@@ -40,9 +40,11 @@ it('rejects a lifetime that is not "session" or 1 to 365 days', function (string
     'null remembered days' => ['remember_expires_in_days', null],
 ]);
 
-it('validates the lifetime when the app boots', function () {
+it('validates the lifetime when the app boots', function (): void {
     config(['authentication.two_factor.device_trust.expires_in_days' => 'forever']);
 
-    expect(fn () => (new AuthenticationServiceProvider(app()))->boot())
+    expect(function (): void {
+        (new AuthenticationServiceProvider(app()))->boot();
+    })
         ->toThrow(InvalidConfigurationException::class, 'The [authentication.two_factor.device_trust.expires_in_days] setting must be "session" or a number of days from 1 to 365, "forever" given.');
 });

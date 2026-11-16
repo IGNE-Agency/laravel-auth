@@ -6,6 +6,7 @@ namespace Igne\Auth\TwoFactor\Listeners;
 
 use Igne\Auth\TwoFactor\DeviceTrust;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\Request;
 use Laravel\Fortify\Events\PasswordUpdatedViaController;
@@ -28,6 +29,10 @@ final class RevokeDeviceTrust
         if ($event instanceof PasswordReset) {
             $this->deviceTrust->revokeAll($event->user, 'password_reset');
 
+            return;
+        }
+
+        if (! $event->user instanceof Authenticatable) {
             return;
         }
 

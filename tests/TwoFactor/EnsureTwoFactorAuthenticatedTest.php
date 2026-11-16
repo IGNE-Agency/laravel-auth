@@ -10,7 +10,7 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
+beforeEach(function (): void {
     Route::middleware([AcceptJson::class, 'api', 'auth:sanctum'])->group(function (): void {
         Route::get('api-area', fn (): array => ['area' => 'api']);
         Route::get('open-area', fn (): array => ['area' => 'open'])->withoutMiddleware(EnsureTwoFactorAuthenticated::class);
@@ -20,12 +20,12 @@ beforeEach(function () {
     Route::middleware([AcceptJson::class, 'api'])->get('public-area', fn (): array => ['area' => 'public']);
 });
 
-describe('a user who must set up two-factor authentication', function () {
-    beforeEach(function () {
+describe('a user who must set up two-factor authentication', function (): void {
+    beforeEach(function (): void {
         config(['authentication.two_factor.required' => true]);
     });
 
-    it('gets "two_factor_setup_required" on app and package routes', function (string $method, string $uri) {
+    it('gets "two_factor_setup_required" on app and package routes', function (string $method, string $uri): void {
         $user = User::factory()->create();
 
         $response = $this->withToken($user->createToken('test')->plainTextToken)->json($method, $uri, ['current_password' => 'password']);
@@ -39,7 +39,7 @@ describe('a user who must set up two-factor authentication', function () {
         'the package\'s password route' => ['PUT', '/api/user/password'],
     ]);
 
-    it('gets "two_factor_setup_required" on web routes', function () {
+    it('gets "two_factor_setup_required" on web routes', function (): void {
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->getJson('/web-area');
@@ -47,7 +47,7 @@ describe('a user who must set up two-factor authentication', function () {
         $response->assertForbidden()->assertJsonPath('code', 'two_factor_setup_required');
     });
 
-    it('can still reach the user, logout and the two-factor setup', function () {
+    it('can still reach the user, logout and the two-factor setup', function (): void {
         $user = User::factory()->create();
         $this->withToken($user->createToken('test')->plainTextToken);
 
@@ -64,7 +64,7 @@ describe('a user who must set up two-factor authentication', function () {
         $logout->assertNoContent();
     });
 
-    it('is trusted on the access token it confirms the setup with', function () {
+    it('is trusted on the access token it confirms the setup with', function (): void {
         $user = User::factory()->create();
         $this->withToken($user->createToken('test')->plainTextToken);
         $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
@@ -79,7 +79,7 @@ describe('a user who must set up two-factor authentication', function () {
     });
 });
 
-it('lets a user without two-factor authentication through when it is not required', function () {
+it('lets a user without two-factor authentication through when it is not required', function (): void {
     $user = User::factory()->create();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api-area');
@@ -87,7 +87,7 @@ it('lets a user without two-factor authentication through when it is not require
     $response->assertOk();
 });
 
-it('gives a user with two-factor authentication on an untrusted access token "two_factor_required"', function () {
+it('gives a user with two-factor authentication on an untrusted access token "two_factor_required"', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api-area');
@@ -98,7 +98,7 @@ it('gives a user with two-factor authentication on an untrusted access token "tw
     ]);
 });
 
-it('keeps two-factor management behind the challenge on an untrusted access token', function () {
+it('keeps two-factor management behind the challenge on an untrusted access token', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->deleteJson('/api/user/two-factor-authentication');
@@ -107,8 +107,8 @@ it('keeps two-factor management behind the challenge on an untrusted access toke
     expect($user->fresh()->hasEnabledTwoFactorAuthentication())->toBeTrue();
 });
 
-describe('step-up', function () {
-    it('lets a bearer client pass the challenge again with its access token', function () {
+describe('step-up', function (): void {
+    it('lets a bearer client pass the challenge again with its access token', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $token = $user->createToken('test')->plainTextToken;
 
@@ -123,7 +123,7 @@ describe('step-up', function () {
         expect($user->tokens()->count())->toBe(1);
     });
 
-    it('lets an SPA pass the challenge again in its session', function () {
+    it('lets an SPA pass the challenge again in its session', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $this->actingAs($user, 'web');
 
@@ -136,7 +136,7 @@ describe('step-up', function () {
         $after->assertOk();
     });
 
-    it('rejects a wrong step-up code', function () {
+    it('rejects a wrong step-up code', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
         $token = $user->createToken('test')->plainTextToken;
 
@@ -149,7 +149,7 @@ describe('step-up', function () {
     });
 });
 
-it('checks nothing without Fortify\'s two-factor feature', function () {
+it('checks nothing without Fortify\'s two-factor feature', function (): void {
     config(['authentication.two_factor.required' => true, 'fortify.features' => []]);
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
@@ -158,7 +158,7 @@ it('checks nothing without Fortify\'s two-factor feature', function () {
     $response->assertOk();
 });
 
-it('lets guests and routes without the middleware through', function () {
+it('lets guests and routes without the middleware through', function (): void {
     config(['authentication.two_factor.required' => true]);
     $user = User::factory()->create();
 
@@ -169,7 +169,7 @@ it('lets guests and routes without the middleware through', function () {
     $withoutMiddleware->assertOk();
 });
 
-it('skips the routes listed in "except" and the setup check for those in "except_setup"', function () {
+it('skips the routes listed in "except" and the setup check for those in "except_setup"', function (): void {
     config([
         'authentication.two_factor.required' => true,
         'authentication.two_factor.except' => ['api-area'],
@@ -185,7 +185,7 @@ it('skips the routes listed in "except" and the setup check for those in "except
     $exemptFromSetup->assertOk();
 });
 
-it('runs right after authentication and before throttling', function () {
+it('runs right after authentication and before throttling', function (): void {
     $router = app(Router::class);
     $router->getRoutes()->refreshNameLookups();
     $route = $router->getRoutes()->getByName('throttled-area');

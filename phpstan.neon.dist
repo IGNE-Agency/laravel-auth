@@ -6,6 +6,8 @@ parameters:
     paths:
         - src
         - tests/Fixtures
+    excludePaths:
+        - src/Nova
     databaseMigrationsPath:
         - tests/database/migrations
         - vendor/laravel/sanctum/database/migrations

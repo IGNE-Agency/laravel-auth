@@ -196,17 +196,17 @@ final class AuthenticationOperations
 
     private function challengeHeader(): string
     {
-        return (string) config('authentication.header_sessions.challenge_header', 'X-Auth-Challenge');
+        return config()->string('authentication.header_sessions.challenge_header', 'X-Auth-Challenge');
     }
 
     private function deviceCookie(): string
     {
-        return (string) config('authentication.two_factor.device_trust.cookie', 'two_factor_device');
+        return config()->string('authentication.two_factor.device_trust.cookie', 'two_factor_device');
     }
 
     private function deviceHeader(): string
     {
-        return (string) config('authentication.two_factor.device_trust.header', 'X-Two-Factor-Device');
+        return config()->string('authentication.two_factor.device_trust.header', 'X-Two-Factor-Device');
     }
 
     private function login(): OperationSchema

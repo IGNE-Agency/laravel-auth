@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Igne\Auth\Tests\Fixtures\User;
 use Igne\Auth\TwoFactor\Models\TrustedDevice;
 
-it('stores only the hash of the device secret', function () {
+it('stores only the hash of the device secret', function (): void {
     $device = TrustedDevice::factory()->for(User::factory()->create(), 'authenticatable')->withSecret('device-secret')->create();
 
     expect($device->token_hash)->toBe(hash('sha256', 'device-secret'))
@@ -14,7 +14,7 @@ it('stores only the hash of the device secret', function () {
         ->and($device->toArray())->not->toHaveKey('token_hash');
 });
 
-it('prunes expired devices and devices verified more than 365 days ago', function () {
+it('prunes expired devices and devices verified more than 365 days ago', function (): void {
     $user = User::factory()->create();
     $active = TrustedDevice::factory()->for($user, 'authenticatable')->create();
     $boundToToken = TrustedDevice::factory()->for($user, 'authenticatable')->forAccessToken('1')->create();

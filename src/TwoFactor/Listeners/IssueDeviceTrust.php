@@ -35,6 +35,11 @@ final class IssueDeviceTrust
     public function handle(ValidTwoFactorAuthenticationCodeProvided|TwoFactorAuthenticationConfirmed $event): void
     {
         $user = $event->user;
+
+        if (! $user instanceof Authenticatable) {
+            return;
+        }
+
         $request = $this->container->make(Request::class);
         $recoveryCodeUsed = $request->attributes->get(DeviceTrust::RECOVERY_CODE_ATTRIBUTE) === true;
 
