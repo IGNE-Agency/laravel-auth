@@ -33,8 +33,10 @@ return [
     ],
     'reset_two_factor_action' => [
         'name' => 'Reset two-factor authentication',
-        'confirm' => 'Reset the two-factor authentication of the selected users? They are logged out everywhere and set up two-factor authentication again when they log in.',
-        'button' => 'Reset',
+        'confirm' => 'This resets the two-factor authentication of the selected users. Their authenticator, recovery codes and trusted devices are removed, they are logged out on every device (sessions and access tokens) and they get an email about the reset. They set up two-factor authentication again when they next log in. Resetting your own logs you out as well.',
+        'button' => 'Reset two-factor authentication',
+        'password' => 'Your password',
+        'password_help' => 'Enter your own password to confirm this action.',
         'done' => 'The two-factor authentication was reset.',
     ],
 ];
