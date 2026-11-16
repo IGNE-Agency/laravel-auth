@@ -14,6 +14,7 @@ return new class extends Migration
             $table->id();
             $table->string('email')->unique();
             $table->string('password')->nullable();
+            $table->boolean('login_codes_enabled')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });

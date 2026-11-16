@@ -7,6 +7,8 @@ use Igne\Auth\Http\Controllers\NewPasswordController;
 use Igne\Auth\Http\Controllers\PasswordController;
 use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
+use Igne\Auth\LoginCodes\Http\Controllers\ConfirmationCodeController;
+use Igne\Auth\LoginCodes\Http\Controllers\LoginCodeController;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -34,6 +36,10 @@ Route::post('auth/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.logout');
 
+Route::post('auth/login-code', [LoginCodeController::class, 'store'])
+    ->middleware('throttle:authentication-login-code')
+    ->name('authentication.login-code');
+
 if (Features::enabled(Features::resetPasswords())) {
     Route::post('auth/forgot-password', [PasswordResetLinkController::class, 'store'])
         ->middleware(['throttle:authentication-password-reset', ConcealPasswordResetOutcome::class])
@@ -60,3 +66,7 @@ Route::post('user/confirm-password', [ConfirmablePasswordController::class, 'sto
 Route::get('user/confirmed-password-status', [ConfirmedPasswordStatusController::class, 'show'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.password.confirmation');
+
+Route::post('user/confirm-password/code', [ConfirmationCodeController::class, 'store'])
+    ->middleware(['auth:sanctum', 'throttle:authentication-confirmation-code'])
+    ->name('authentication.password.confirm.code');

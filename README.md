@@ -18,14 +18,27 @@ The package ships no views. Screens belong to the frontends.
 ```bash
 composer require igne-agency/laravel-auth
 php artisan vendor:publish --tag=authentication-config
+php artisan vendor:publish --tag=authentication-migrations
 php artisan vendor:publish --tag=sanctum-migrations
+php artisan migrate
 ```
 
 Then:
 
 - set `views` to `false` in `config/fortify.php`;
 - call `$middleware->statefulApi()` in `bootstrap/app.php`;
-- let the authenticatable model (usually `User`) implement `Igne\Auth\Authentication\Contracts\PasswordAuthenticatable` with the `AuthenticatesWithPassword` trait, and use Sanctum's `HasApiTokens`.
+- let the authenticatable model (usually `User`) implement `Igne\Auth\Authentication\Contracts\PasswordAuthenticatable` with the `AuthenticatesWithPassword` trait, and use Sanctum's `HasApiTokens`;
+- for login codes, let it also implement `Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable` with the `AuthenticatesWithLoginCode` trait.
+
+## Login codes
+
+Users that implement `LoginCodeAuthenticatable` can log in with an emailed one-time code instead of a password. `POST auth/login-code` sends one; the login route takes it in the `password` field. A user logs in with their password when they can use one, and else (or when it doesn't match) with a code when `canAuthenticateWithLoginCode()` allows it. Override that method to limit codes, e.g. to users without a password, so password users can't skip their password with a code.
+
+The request route always answers 202 with the same body, also for unknown addresses and when it is rate-limited, so it never reveals whether an account exists. Only an HMAC of a code is stored (keyed with the app key; codes made under a key in `app.previous_keys` keep working). A code expires, works once and takes a few wrong attempts; a user's wrong attempts across codes are rate-limited too, and a new code does not reset that.
+
+Logged-in users confirm their identity (Fortify's confirm-password route and `password.confirm` middleware) with the strongest factor they have: their password, or else an emailed code from `POST user/confirm-password/code`. `GET user` tells which one in `confirmation_method`.
+
+The mail is `Igne\Auth\LoginCodes\Notifications\LoginCodeNotification`, a queued `MailMessage`. Swap it in `login_codes.notification` for a notification with the same constructor (`string $code, CarbonInterface $expiresAt, ?string $url, LoginCodePurpose $purpose`). With `login_codes.link_url` set, the login mail also links to that frontend page, with the `{email}` and `{code}` placeholders filled in; the page posts the code to the login route.
 
 ## Routes
 
@@ -35,12 +48,14 @@ With the default prefix `api`:
 |---|---|---|
 | POST | `auth/login` | `authentication.login` |
 | POST | `auth/logout` | `authentication.logout` |
+| POST | `auth/login-code` | `authentication.login-code` |
 | POST | `auth/forgot-password` | `authentication.password.email` |
 | POST | `auth/reset-password` | `authentication.password.update` |
 | GET | `user` | `authentication.user` |
 | PUT | `user/password` | `authentication.user-password.update` |
 | POST | `user/confirm-password` | `authentication.password.confirm.store` |
 | GET | `user/confirmed-password-status` | `authentication.password.confirmation` |
+| POST | `user/confirm-password/code` | `authentication.password.confirm.code` |
 
 The password routes follow Fortify's `resetPasswords` and `updatePasswords` features. They run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
 

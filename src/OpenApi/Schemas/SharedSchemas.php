@@ -14,6 +14,7 @@ use Dedoc\Scramble\Support\Generator\Types\ArrayType;
 use Dedoc\Scramble\Support\Generator\Types\IntegerType;
 use Dedoc\Scramble\Support\Generator\Types\ObjectType;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
+use Igne\Auth\Authentication\AuthenticationMethod;
 use Igne\Auth\Http\ErrorCode;
 
 /**
@@ -36,7 +37,11 @@ final class SharedSchemas
                 (new ObjectType)
                     ->addProperty('id', $id)
                     ->addProperty('email', (new StringType)->format('email'))
-                    ->setRequired(['id', 'email']),
+                    ->addProperty('confirmation_method', (new StringType)
+                        ->enum([AuthenticationMethod::Password->value, AuthenticationMethod::LoginCode->value])
+                        ->nullable(true)
+                        ->setDescription('How the user confirms their identity on POST /user/confirm-password: with their password, or with an emailed code from POST /user/confirm-password/code. Null when they can\'t.'))
+                    ->setRequired(['id', 'email', 'confirmation_method']),
             ));
         }
 

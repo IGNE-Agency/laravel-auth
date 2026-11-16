@@ -10,4 +10,5 @@ namespace Igne\Auth\Http;
 enum ErrorCode: string
 {
     case PasswordUnavailable = 'password_unavailable';
+    case LoginCodeUnavailable = 'login_code_unavailable';
 }

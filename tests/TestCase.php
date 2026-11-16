@@ -6,11 +6,13 @@ namespace Igne\Auth\Tests;
 
 use Dedoc\Scramble\ScrambleServiceProvider;
 use Igne\Auth\AuthenticationServiceProvider;
+use Igne\Auth\LoginCodes\Notifications\LoginCodeNotification;
 use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\FortifyServiceProvider;
@@ -81,6 +83,7 @@ abstract class TestCase extends Orchestra
     protected function defineDatabaseMigrations(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
+        $this->loadMigrationsFrom(dirname(__DIR__).'/database/migrations');
         $this->loadMigrationsFrom(dirname((string) (new ReflectionClass(Sanctum::class))->getFileName(), 2).'/database/migrations');
     }
 
@@ -108,6 +111,16 @@ abstract class TestCase extends Orchestra
         $this->forgetAuthenticatedUsers();
 
         return (string) $token;
+    }
+
+    /**
+     * Get the notification with the last code that was sent to the user.
+     * Needs Notification::fake().
+     */
+    protected function lastLoginCodeNotification(User $user): LoginCodeNotification
+    {
+        /** @var LoginCodeNotification */
+        return Notification::sent($user, LoginCodeNotification::class)->last();
     }
 
     /**

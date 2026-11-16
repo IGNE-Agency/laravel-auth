@@ -104,7 +104,7 @@ final class AuthenticationOperationTransformer implements OperationTransformer
             $has('auth:*') ? $schemas->unauthenticated() : null,
             $definition->validatesInput ? $schemas->validationError() : null,
             $has('password.confirm*') ? $schemas->passwordConfirmationRequired() : null,
-            $definition->throttled || $has('throttle:*') ? $schemas->tooManyRequests() : null,
+            ($definition->throttled ?? $has('throttle:*')) ? $schemas->tooManyRequests() : null,
         ]));
     }
 }

@@ -22,6 +22,7 @@ final class UserFactory extends Factory
         return [
             'email' => fake()->unique()->safeEmail(),
             'password' => Hash::make('password'),
+            'login_codes_enabled' => true,
         ];
     }
 
@@ -31,5 +32,13 @@ final class UserFactory extends Factory
     public function withoutPassword(): static
     {
         return $this->state(['password' => null]);
+    }
+
+    /**
+     * A user that can't log in with an emailed code.
+     */
+    public function withoutLoginCodes(): static
+    {
+        return $this->state(['login_codes_enabled' => false]);
     }
 }

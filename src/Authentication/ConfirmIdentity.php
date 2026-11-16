@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Igne\Auth\Authentication;
+
+use Igne\Auth\Authentication\Contracts\PasswordAuthenticatable;
+use Igne\Auth\LoginCodes\Actions\ConsumeLoginCodeAction;
+use Igne\Auth\LoginCodes\ConsumeLoginCodeResult;
+use Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable;
+use Igne\Auth\LoginCodes\LoginCodePurpose;
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
+use SensitiveParameter;
+
+/**
+ * Confirms the identity of a logged-in user before a sensitive action. It is
+ * registered with Fortify::confirmPasswordsUsing(), so Fortify's
+ * confirm-password route and "password.confirm" middleware use it.
+ *
+ * The user confirms with the strongest factor they have: their password, or
+ * else an emailed confirmation code, sent in the "password" field.
+ */
+final class ConfirmIdentity
+{
+    public function __construct(
+        private readonly UserProviderResolver $users,
+        private readonly Repository $config,
+        private readonly Container $container,
+    ) {}
+
+    public function __invoke(mixed $user, #[SensitiveParameter] ?string $password = null): bool
+    {
+        if ($password === null || $password === '') {
+            return false;
+        }
+
+        return match ($this->methodFor($user)) {
+            AuthenticationMethod::Password => $user instanceof PasswordAuthenticatable && $this->users->resolve()->validateCredentials($user, ['password' => $password]),
+            AuthenticationMethod::LoginCode => $user instanceof LoginCodeAuthenticatable && $this->consumeConfirmationCode($user, $password),
+            default => false,
+        };
+    }
+
+    /**
+     * Get the factor the user confirms their identity with, or null when they
+     * can't confirm it.
+     */
+    public function methodFor(mixed $user): ?AuthenticationMethod
+    {
+        if ($user instanceof PasswordAuthenticatable && $user->canAuthenticateWithPassword()) {
+            return AuthenticationMethod::Password;
+        }
+
+        if ($user instanceof LoginCodeAuthenticatable && $user->canAuthenticateWithLoginCode()) {
+            return AuthenticationMethod::LoginCode;
+        }
+
+        return null;
+    }
+
+    private function consumeConfirmationCode(LoginCodeAuthenticatable $user, #[SensitiveParameter] string $code): bool
+    {
+        /** @var class-string<ConsumeLoginCodeAction> $action */
+        $action = $this->config->get('authentication.login_codes.actions.consume_login_code');
+
+        return $this->container->make($action)->execute($user, LoginCodePurpose::Confirm, $code) === ConsumeLoginCodeResult::Ok;
+    }
+}

@@ -8,11 +8,14 @@ use Dedoc\Scramble\Scramble;
 use Igne\Auth\Authentication\Actions\ResetPassword;
 use Igne\Auth\Authentication\Actions\UpdatePassword;
 use Igne\Auth\Authentication\AuthenticateCredentials;
+use Igne\Auth\Authentication\ConfirmIdentity;
 use Igne\Auth\Http\Middleware\AcceptJson;
 use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
+use Igne\Auth\LoginCodes\Http\Responses\LoginCodeRequestedResponse;
+use Igne\Auth\LoginCodes\Models\LoginCode;
 use Igne\Auth\OpenApi\Scramble\ScrambleIntegration;
 use Igne\Auth\Sessions\HeaderSessionFactory;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
@@ -21,6 +24,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Config\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
@@ -38,6 +42,7 @@ use Laravel\Fortify\Fortify;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 use LogicException;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Wires the package into Fortify and Sanctum.
@@ -108,10 +113,11 @@ final class AuthenticationServiceProvider extends ServiceProvider
      */
     private function configureFortify(): void
     {
-        // Nova keeps the first callback it sees in a static property, so the
-        // callback resolves the resolver from the current container instead of
-        // capturing this provider's application.
+        // Nova keeps the first callbacks it sees in static properties, so the
+        // callbacks resolve their classes from the current container instead
+        // of capturing this provider's application.
         Fortify::authenticateUsing(static fn (Request $request) => Container::getInstance()->make(AuthenticateCredentials::class)($request));
+        Fortify::confirmPasswordsUsing(static fn (mixed $user, ?string $password = null): bool => Container::getInstance()->make(ConfirmIdentity::class)($user, $password));
         Fortify::resetUserPasswordsUsing(ResetPassword::class);
         Fortify::updateUserPasswordsUsing(UpdatePassword::class);
 
@@ -162,6 +168,41 @@ final class AuthenticationServiceProvider extends ServiceProvider
                 Limit::perMinute(3)->by('email:'.(is_string($email) ? Str::lower($email) : '')),
             ];
         });
+
+        // A throttled login code request gets the same answer as any other,
+        // so the limit doesn't reveal that the address was used before.
+        RateLimiter::for('authentication-login-code', static function (Request $request): array {
+            $username = $request->input(Fortify::username());
+            $concealedResponse = static fn (Request $request): Response => (new LoginCodeRequestedResponse)->toResponse($request);
+
+            return [
+                self::loginCodeRequestLimit('max_requests_per_ip')->by('ip:'.$request->ip())->response($concealedResponse),
+                self::loginCodeRequestLimit('max_requests_per_email')
+                    ->by('email:'.(is_string($username) ? Str::lower(trim($username)) : ''))
+                    ->response($concealedResponse),
+            ];
+        });
+
+        RateLimiter::for('authentication-confirmation-code', static function (Request $request): array {
+            $user = $request->user();
+            $userId = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
+
+            return [
+                self::loginCodeRequestLimit('max_requests_per_ip')->by('ip:'.$request->ip()),
+                self::loginCodeRequestLimit('max_requests_per_email')->by('user:'.(is_scalar($userId) ? (string) $userId : '')),
+            ];
+        });
+    }
+
+    /**
+     * Get a limit on sending codes from "authentication.login_codes.rate_limit_requests".
+     */
+    private static function loginCodeRequestLimit(string $maxRequestsKey): Limit
+    {
+        return Limit::perSecond(
+            (int) config("authentication.login_codes.rate_limit_requests.{$maxRequestsKey}"),
+            (int) config('authentication.login_codes.rate_limit_requests.time_window_in_seconds', 60),
+        );
     }
 
     private function configureRoutes(): void
@@ -185,6 +226,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
             }
 
             $schedule->command('sanctum:prune-expired', ['--hours' => 24])->daily();
+            $schedule->command('model:prune', ['--model' => [config('authentication.login_codes.model', LoginCode::class)]])->daily();
         });
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Igne\Auth\AuthenticationServiceProvider;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
+use Igne\Auth\LoginCodes\Models\LoginCode;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -42,11 +43,19 @@ it('prunes expired Sanctum tokens daily', function (): void {
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 
+it('prunes login codes daily', function () {
+    $events = collect(app(Schedule::class)->events())
+        ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'model:prune'));
+
+    expect($events)->toHaveCount(1)
+        ->and($events->first()->command)->toContain(escapeshellarg(LoginCode::class))
+        ->and($events->first()->expression)->toBe('0 0 * * *');
+});
+
 it('schedules nothing when the schedule is off', function (): void {
     config(['authentication.schedule' => false]);
 
-    $events = collect(app(Schedule::class)->events())
-        ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'sanctum:prune-expired'));
+    $events = app(Schedule::class)->events();
 
     expect($events)->toBeEmpty();
 });

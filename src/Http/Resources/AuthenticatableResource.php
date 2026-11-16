@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Igne\Auth\Http\Resources;
 
+use Igne\Auth\Authentication\ConfirmIdentity;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -25,13 +26,18 @@ class AuthenticatableResource extends JsonResource
     public static $wrap = null;
 
     /**
-     * @return array{id: mixed, email: mixed}
+     * The "confirmation_method" is the factor the user confirms their identity
+     * with on the confirm-password route ("password" or "login_code"), or null
+     * when they can't.
+     *
+     * @return array{id: mixed, email: mixed, confirmation_method: string|null}
      */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->resource->getAuthIdentifier(),
             'email' => data_get($this->resource, Fortify::email()),
+            'confirmation_method' => app(ConfirmIdentity::class)->methodFor($this->resource)?->value,
         ];
     }
 }

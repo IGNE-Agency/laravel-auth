@@ -33,6 +33,14 @@ final class AuthenticationOperations
                 description: 'Session mode ends the session. Token mode revokes the access token the request was sent with.',
                 responses: [$this->schemas->empty(204, 'Logged out')],
             ),
+            'authentication.login-code' => new OperationSchema(
+                summary: 'Request a login code',
+                description: 'Emails a one-time login code when the account can log in with one. The answer is always 202 with the same body: for unknown accounts, for accounts that can\'t use codes and when rate-limited too, so it never reveals whether an account exists. Log in by sending the code as "password" to POST /auth/login.',
+                requestBody: $this->object([Fortify::username() => $this->email()]),
+                responses: [$this->schemas->message(202, 'The request was accepted')],
+                validatesInput: true,
+                throttled: false,
+            ),
             'authentication.password.email' => new OperationSchema(
                 summary: 'Request a password reset link',
                 description: 'Always answers with the same success for a valid email address, whether or not an account exists. Only users that can log in with a password get a link.',
@@ -76,7 +84,7 @@ final class AuthenticationOperations
             ),
             'authentication.password.confirm.store' => new OperationSchema(
                 summary: 'Confirm the password',
-                description: 'Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token.',
+                description: 'Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token. "password" is what the user\'s "confirmation_method" says: their password, or an emailed code from POST /user/confirm-password/code.',
                 requestBody: $this->object(['password' => new StringType]),
                 responses: [$this->schemas->empty(201, 'The password was confirmed')],
                 validatesInput: true,
@@ -96,6 +104,14 @@ final class AuthenticationOperations
                         ->setSchema(Schema::fromType(new IntegerType)),
                 ],
             ),
+            'authentication.password.confirm.code' => new OperationSchema(
+                summary: 'Request a confirmation code',
+                description: 'Emails a one-time code to a user whose "confirmation_method" is "login_code". Confirm by sending it as "password" to POST /user/confirm-password.',
+                responses: [
+                    $this->schemas->message(202, 'The code was sent'),
+                    $this->schemas->forbidden(ErrorCode::LoginCodeUnavailable, 'The user confirms with another method'),
+                ],
+            ),
             default => null,
         };
     }
@@ -109,8 +125,8 @@ final class AuthenticationOperations
             ->setRequired(['two_factor']);
 
         return new OperationSchema(
-            summary: 'Log in with email and password',
-            description: 'Session mode (an SPA whose requests run through Sanctum\'s stateful stack) logs in to the cookie session. Token mode answers with an access token instead; "remember" is ignored and "device_name" names the token (the user agent otherwise).',
+            summary: 'Log in with email and password or login code',
+            description: 'Session mode (an SPA whose requests run through Sanctum\'s stateful stack) logs in to the cookie session. Token mode answers with an access token instead; "remember" is ignored and "device_name" names the token (the user agent otherwise). "password" is the user\'s password, or a login code from POST /auth/login-code for users that log in with codes.',
             requestBody: $this->object([
                 Fortify::username() => $this->email(),
                 'password' => new StringType,
