@@ -145,19 +145,53 @@ With the default prefix `api`:
 
 The password routes follow Fortify's `resetPasswords` and `updatePasswords` features, and the two-factor and device routes its `twoFactorAuthentication` feature. The password reset and change routes run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
 
+Protected routes of the app belong in the `web` or `api` middleware group, so the two-factor enforcement applies to them. Exempt a route only deliberately, through `two_factor.except` or `two_factor.except_setup`, `TwoFactorEnforcement::except()` or `exceptSetup()`, or `->withoutMiddleware(EnsureTwoFactorAuthenticated::class)`.
+
 ## Nova
 
-With [Laravel Nova](https://nova.laravel.com) 5 installed, `Igne\Auth\Nova\NovaIntegration` lets Nova's own login, challenge and User Security screens handle two-factor authentication (see above), and the action `Igne\Auth\Nova\Actions\ResetTwoFactorAuthentication` resets it from a user resource. Nova is paid, so the package only suggests it.
+With [Laravel Nova](https://nova.laravel.com) 5 installed, `Igne\Auth\Nova\NovaIntegration` lets Nova's own screens handle authentication:
 
-The package's own CI covers the adapter in its `nova` job when the repository has the `COMPOSER_AUTH` secret: it installs Nova, runs Larastan with `phpstan-nova.neon.dist` (which includes `src/Nova`) and runs the tests in `tests/Nova` on a Testbench Nova setup (`tests/Fixtures/Nova`). Without the secret, such as on pull requests from forks, the job skips those steps.
+- Nova's login, logout, challenge, password reset pages and assets skip the two-factor enforcement, and its User Security page skips the setup check;
+- a Nova user without two-factor authentication goes to User Security, and one on an untrusted device is logged out of the session (which stays) and sent to Nova's challenge;
+- a route named `password.confirm` redirects to Nova's password confirmation page, unless the app defines one.
+
+Nova logs in through `Fortify::authenticateUsing`, so the credential check and the per-device challenge apply to it. In the app:
+
+- enable the same `updatePasswords` and `twoFactorAuthentication` features in `NovaServiceProvider::fortify()`;
+- set Fortify's `limiters.two-factor` to `authentication-two-factor`, so Nova's challenge uses the package limiter;
+- add the action `Igne\Auth\Nova\Actions\ResetTwoFactorAuthentication` to the user resource, and define the `resetTwoFactorAuthentication` gate (the package's default denies everyone).
+
+Nova's challenge has no "remember" checkbox, so Nova logins trust a device for `two_factor.device_trust.expires_in_days`.
+
+Nova is paid, so the package only suggests it. The package's own CI covers the adapter in its `nova` job when the repository has the `COMPOSER_AUTH` secret: it installs Nova, runs Larastan with `phpstan-nova.neon.dist` (which includes `src/Nova`) and runs the tests in `tests/Nova` on a Testbench Nova setup (`tests/Fixtures/Nova`). Without the secret, such as on pull requests from forks, the job skips those steps.
+
+## Passport
+
+Passport is not supported yet. The seam for it is the token issuer: `Igne\Auth\Tokens\Contracts\IssuesAccessTokens`, set in `tokens.issuer` (default `SanctumAccessTokenIssuer`). The package never adds `HasApiTokens` to the model, because Passport's trait conflicts with Sanctum's. The idle lifetime and the trust bound to an access token hook into Sanctum's token model, so a Passport issuer needs its own equivalents.
 
 ## OpenAPI
 
-When the app uses [Scramble](https://scramble.dedoc.co) 0.13.48 or a later 0.13 release, the package documents its routes in the app's default API: explicit request and response schemas per route, the `bearer`, `session` and `xsrf` security schemes, and the responses of the package exceptions the app's own code throws. Scramble stays optional; the package conflicts with Scramble versions outside that range, because its extension API changes between 0.x releases.
+When the app uses [Scramble](https://scramble.dedoc.co) 0.13.48 or a later 0.13 release, the package documents its routes in the app's default API, in its OpenAPI 3.1 document:
 
-- The route schemas live in `src/OpenApi/Schemas`, next to the logic. Everything that calls Scramble lives in `Igne\Auth\OpenApi\Scramble`, which `ScrambleIntegration` wires up when Scramble is installed.
+- every package route has an explicit request and response schema (`Igne\Auth\OpenApi\Schemas\AuthenticationOperations`, keyed by route name), plus the error answers its middleware and body lead to (401, 403 with `code`, 422, 423, 429);
+- every route behind `auth:sanctum` is secured by `bearer`, or by the `session` cookie plus the `xsrf` header;
+- the package exceptions the app's own code throws are documented as `{message, code}`, with `code` from `Igne\Auth\Http\ErrorCode`.
+
+Scramble stays optional. The package conflicts with Scramble versions outside that range (`"dedoc/scramble": "<0.13.48 || >=0.14"`), because Scramble's extension API changes between 0.x releases.
+
+In the app, commit the exported document (`php artisan scramble:export`) and test that it is not stale; export it again after updating the package. Pin `openapi.session_cookie`, so every environment exports the same document.
+
+In this package:
+
+- The route schemas live in `src/OpenApi/Schemas`, next to the logic. Everything that calls Scramble lives in `Igne\Auth\OpenApi\Scramble` (`src/OpenApi/Scramble`), which `ScrambleIntegration` wires up when Scramble is installed.
 - `tests/OpenApi/SpecTest.php` snapshots the part of the generated document the package owns: the operations of the `authentication.*` routes and the components. After changing a route's schema, refresh the snapshot with `composer openapi` and review its diff.
 - Every HTTP test of a package route ends with `->assertMatchesOpenApi('<route name>')`. It fails when the response's status is not documented for that route, and validates a documented JSON body against its schema (JSON Schema 2020-12 with `opis/json-schema`). A failure means the schema or the response is wrong; fix that, not the assertion.
+
+## AI guidelines
+
+The package ships a [Laravel Boost](https://github.com/laravel/boost) guideline (`resources/boost/guidelines/core.blade.php`: the concepts, naming, layers and package rules) and the `authentication-development` skill (`resources/boost/skills/authentication-development`). Boost reads them from the installed package, when the app requires it directly. Boost only adds a newly installed package's guideline when you choose it: run `php artisan boost:update` (or `boost:install`) interactively and select `igne-agency/laravel-auth`. After that, `boost:update --no-interaction` keeps it up to date.
+
+Change the guideline, the skill and [Concepts](docs/concepts.md) in the same pull request as the behaviour they describe.
 
 ## Tests
 
@@ -171,6 +205,12 @@ composer test      # Pest
 ```
 
 `tests/TestCase.php` configures the app the suite needs: an in-memory SQLite database, array cache, session and mail, and the fixture user in `tests/Fixtures`. Without Scramble or `opis/json-schema` installed, the snapshot test is skipped and `assertMatchesOpenApi` asserts nothing; CI runs the suite that way too.
+
+CI (`.github/workflows/ci.yml`) runs three jobs on pull requests and pushes to `main`:
+
+- `checks`: Pint, Larastan and Pest, on the lowest and the newest dependencies the constraints allow;
+- `without-scramble`: Pest after removing Scramble and `opis/json-schema`, so the package also works without them;
+- `nova`: Larastan with `phpstan-nova.neon.dist` and the tests in `tests/Nova`, with Nova installed through the `COMPOSER_AUTH` secret (skipped without it).
 
 Without Nova, the tests in `tests/Nova` are skipped. With Nova credentials in your Composer auth, run the Nova checks locally, then revert `composer.json`:
 
