@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Igne\Auth\Audit\AuditEntry;
 use Igne\Auth\Audit\AuditEvent;
 use Igne\Auth\Audit\Models\AuditLog;
 use Igne\Auth\Events\AccessTokenRevoked;
@@ -49,7 +50,7 @@ function auditEvents(): array
     return AuditLog::query()->orderBy('id')->get()->map(fn (AuditLog $log): string => $log->event->value)->all();
 }
 
-it('records a token client\'s password login with the context of the request', function () {
+it('records a token client\'s password login with the context of the request', function (): void {
     $this->freezeSecond();
     $user = User::factory()->create();
 
@@ -74,7 +75,7 @@ it('records a token client\'s password login with the context of the request', f
         ->and($token->metadata)->toBe(['name' => 'Symfony', 'expires_at' => $user->tokens()->sole()->expires_at?->toJSON()]);
 });
 
-it('records an SPA login in session mode', function () {
+it('records an SPA login in session mode', function (): void {
     $user = User::factory()->create();
 
     $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
@@ -82,7 +83,7 @@ it('records an SPA login in session mode', function () {
     expect(auditEntry(AuditEvent::LoginSucceeded)->channel)->toBe('session');
 });
 
-it('records the requested login code and the login with it', function () {
+it('records the requested login code and the login with it', function (): void {
     Notification::fake();
     $user = User::factory()->withoutPassword()->create();
     $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted();
@@ -96,7 +97,7 @@ it('records the requested login code and the login with it', function () {
         ->and(auditEntry(AuditEvent::LoginSucceeded)->auth_methods)->toBe(['login_code']);
 });
 
-it('records the two-factor challenge, a wrong code and the login that passes it', function () {
+it('records the two-factor challenge, a wrong code and the login that passes it', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
     $this->passChallenge($this->loginForChallenge($user), ['code' => '000000'])->assertUnprocessable();
@@ -120,7 +121,7 @@ it('records the two-factor challenge, a wrong code and the login that passes it'
         ->and(auditEntry(AuditEvent::DeviceTrusted)->actor?->is($user))->toBeTrue();
 });
 
-it('records a login with a recovery code', function () {
+it('records a login with a recovery code', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
     $this->passChallenge($this->loginForChallenge($user), ['recovery_code' => $this->recoveryCode($user)])->assertOk();
@@ -129,7 +130,7 @@ it('records a login with a recovery code', function () {
         ->and(auditEntry(AuditEvent::TwoFactorSucceeded)->auth_methods)->toBe(['recovery_code']);
 });
 
-it('records a failed login with the submitted username only', function () {
+it('records a failed login with the submitted username only', function (): void {
     $user = User::factory()->create();
 
     $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'not-the-secret-password'])->assertUnprocessable();
@@ -140,7 +141,7 @@ it('records a failed login with the submitted username only', function () {
         ->and((string) json_encode($failed->getAttributes()))->not->toContain('not-the-secret-password');
 });
 
-it('records a login lockout with the submitted username', function () {
+it('records a login lockout with the submitted username', function (): void {
     $user = User::factory()->create();
 
     foreach (range(1, 6) as $attempt) {
@@ -150,7 +151,7 @@ it('records a login lockout with the submitted username', function () {
     expect(auditEntry(AuditEvent::LoginLockout)->metadata)->toBe(['username' => $user->email]);
 });
 
-it('skips a login restored from a "remember me" cookie', function () {
+it('skips a login restored from a "remember me" cookie', function (): void {
     Route::middleware('web')->get('remembered-area', fn (): array => ['id' => Auth::id()]);
     $user = User::factory()->create(['remember_token' => Str::random(60)]);
 
@@ -161,7 +162,7 @@ it('skips a login restored from a "remember me" cookie', function () {
     expect(AuditLog::query()->count())->toBe(0);
 });
 
-it('records a token client\'s logout from its revoked access token', function () {
+it('records a token client\'s logout from its revoked access token', function (): void {
     $user = User::factory()->create();
     $token = $this->loginForToken($user);
     $tokenId = (string) $user->tokens()->sole()->getKey();
@@ -175,7 +176,7 @@ it('records a token client\'s logout from its revoked access token', function ()
         ->and(AuditLog::query()->where('event', AuditEvent::TokenRevoked->value)->exists())->toBeFalse();
 });
 
-it('records a logout of a cookie session with the hash of the session', function () {
+it('records a logout of a cookie session with the hash of the session', function (): void {
     $user = User::factory()->create();
     $sessionId = Str::random(40);
 
@@ -192,13 +193,13 @@ it('records a logout of a cookie session with the hash of the session', function
         ->and($logout->credential_hash)->toBe(hash('sha256', $sessionId));
 });
 
-it('ignores a logout without a user', function () {
+it('ignores a logout without a user', function (): void {
     event(new Logout('web', null));
 
     expect(AuditLog::query()->count())->toBe(0);
 });
 
-it('records the user\'s own security changes with them as the actor', function (Closure $makeEvent, AuditEvent $expected) {
+it('records the user\'s own security changes with them as the actor', function (Closure $makeEvent, AuditEvent $expected): void {
     $user = User::factory()->create();
 
     event($makeEvent($user));
@@ -221,7 +222,7 @@ it('records the user\'s own security changes with them as the actor', function (
     'a trusted device' => [fn (User $user): object => new DeviceTrusted($user, null, false, null), AuditEvent::DeviceTrusted],
 ]);
 
-it('records what happened to an account without an actor outside a request', function (Closure $makeEvent, AuditEvent $expected, array $metadata) {
+it('records what happened to an account without an actor outside a request', function (Closure $makeEvent, AuditEvent $expected, array $metadata): void {
     $user = User::factory()->create();
 
     event($makeEvent($user));
@@ -238,7 +239,7 @@ it('records what happened to an account without an actor outside a request', fun
     'a revoked session' => [fn (User $user): object => new SessionRevoked($user, hash('sha256', 'session-id')), AuditEvent::SessionRevoked, []],
 ]);
 
-it('records who revoked a session, by the hash of its id', function () {
+it('records who revoked a session, by the hash of its id', function (): void {
     config(['session.driver' => 'database']);
     $user = User::factory()->create();
     $sessionId = Str::random(40);
@@ -254,7 +255,7 @@ it('records who revoked a session, by the hash of its id', function () {
         ->and($revoked->channel)->toBe('token');
 });
 
-it('records a reset with the admin who did it as the actor', function () {
+it('records a reset with the admin who did it as the actor', function (): void {
     Notification::fake();
     $admin = User::factory()->create();
     $user = User::factory()->withTwoFactorAuthentication()->create();
@@ -271,7 +272,7 @@ it('records a reset with the admin who did it as the actor', function () {
         ->and($revoked->metadata)->toBe(['reason' => 'two_factor_reset']);
 });
 
-it('records a reset from the console without an actor', function () {
+it('records a reset from the console without an actor', function (): void {
     Notification::fake();
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
@@ -284,7 +285,7 @@ it('records a reset from the console without an actor', function () {
         ->and($reset->request_id)->toBeNull();
 });
 
-it('records nothing when the audit log is disabled', function () {
+it('records nothing when the audit log is disabled', function (): void {
     config(['authentication.audit.enabled' => false]);
 
     $this->loginForToken(User::factory()->create());
@@ -292,7 +293,7 @@ it('records nothing when the audit log is disabled', function () {
     expect(AuditLog::query()->count())->toBe(0);
 });
 
-it('hands the entries to the configured record action', function () {
+it('hands the entries to the configured record action', function (): void {
     $this->app->singleton(RecordingAuditLogAction::class);
     config(['authentication.audit.actions.record_audit_log' => RecordingAuditLogAction::class]);
     $user = User::factory()->create();
@@ -301,6 +302,6 @@ it('hands the entries to the configured record action', function () {
 
     $entries = app(RecordingAuditLogAction::class)->entries;
     expect(AuditLog::query()->count())->toBe(0)
-        ->and(array_map(fn ($entry): AuditEvent => $entry->event, $entries))->toBe([AuditEvent::LoginSucceeded, AuditEvent::TokenCreated])
+        ->and(array_map(fn (AuditEntry $entry): AuditEvent => $entry->event, $entries))->toBe([AuditEvent::LoginSucceeded, AuditEvent::TokenCreated])
         ->and($entries[0]->subject?->is($user))->toBeTrue();
 });

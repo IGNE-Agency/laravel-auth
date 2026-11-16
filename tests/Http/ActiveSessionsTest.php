@@ -29,13 +29,13 @@ function storeWebSession(User $user, string $userAgent = 'Firefox', ?int $lastAc
     return $sessionId;
 }
 
-beforeEach(function () {
+beforeEach(function (): void {
     config(['session.driver' => 'database']);
     $this->freezeSecond();
     $this->user = User::factory()->create(['remember_token' => 'old-remember-token']);
 });
 
-it('lists the user\'s web sessions and access tokens without raw ids, the current one first', function () {
+it('lists the user\'s web sessions and access tokens without raw ids, the current one first', function (): void {
     $laptopSessionId = storeWebSession($this->user, 'Firefox', Date::now()->subMinutes(5)->getTimestamp());
     storeWebSession($this->user, 'Old browser', Date::now()->subMinutes(config('session.lifetime') + 1)->getTimestamp());
     storeWebSession(User::factory()->create());
@@ -75,7 +75,7 @@ it('lists the user\'s web sessions and access tokens without raw ids, the curren
     expect($response->getContent())->not->toContain($laptopSessionId);
 });
 
-it('lists only the access tokens with another session driver', function () {
+it('lists only the access tokens with another session driver', function (): void {
     config(['session.driver' => 'array']);
     storeWebSession($this->user);
     $token = $this->user->createToken('Phone');
@@ -85,7 +85,7 @@ it('lists only the access tokens with another session driver', function () {
     $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.type', 'token');
 });
 
-it('leaves out access tokens that expired or were idle too long', function () {
+it('leaves out access tokens that expired or were idle too long', function (): void {
     config(['authentication.tokens.idle_expires_in_minutes' => 60]);
     $this->user->createToken('Expired', expiresAt: Date::now()->subMinute());
     $idle = $this->user->createToken('Idle');
@@ -97,17 +97,17 @@ it('leaves out access tokens that expired or were idle too long', function () {
     $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Phone');
 });
 
-it('returns 401 to a guest', function () {
+it('returns 401 to a guest', function (): void {
     $this->getJson('/api/user/sessions')->assertUnauthorized();
 });
 
-describe('revoking from a token client', function () {
-    beforeEach(function () {
+describe('revoking from a token client', function (): void {
+    beforeEach(function (): void {
         $this->currentToken = $this->user->createToken('Phone');
         $this->withToken($this->currentToken->plainTextToken);
     });
 
-    it('ends a web session and stops "remember me" logins', function () {
+    it('ends a web session and stops "remember me" logins', function (): void {
         Event::fake([SessionRevoked::class]);
         $sessionId = storeWebSession($this->user);
         $otherSessionId = storeWebSession($this->user);
@@ -121,7 +121,7 @@ describe('revoking from a token client', function () {
         Event::assertDispatched(SessionRevoked::class, fn (SessionRevoked $event): bool => $event->sessionHash === hash('sha256', $sessionId));
     });
 
-    it('revokes another access token', function () {
+    it('revokes another access token', function (): void {
         $otherToken = $this->user->createToken('Tablet');
         $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 
@@ -132,7 +132,7 @@ describe('revoking from a token client', function () {
         $this->assertModelExists($this->currentToken->accessToken);
     });
 
-    it('returns 403 "current_session" for the access token the request comes from', function () {
+    it('returns 403 "current_session" for the access token the request comes from', function (): void {
         $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 
         $response = $this->deleteJson('/api/user/sessions/token:'.$this->currentToken->accessToken->getKey());
@@ -144,7 +144,7 @@ describe('revoking from a token client', function () {
         $this->assertModelExists($this->currentToken->accessToken);
     });
 
-    it('returns 404 for a session or access token of another user', function (Closure $idOf) {
+    it('returns 404 for a session or access token of another user', function (Closure $idOf): void {
         $otherUser = User::factory()->create();
         $sessionId = storeWebSession($otherUser);
         $token = $otherUser->createToken('Phone');
@@ -162,7 +162,7 @@ describe('revoking from a token client', function () {
         'a malformed access token id' => [fn (string $sessionId): string => 'token:not-an-id'],
     ]);
 
-    it('returns 423 without a recent password confirmation', function () {
+    it('returns 423 without a recent password confirmation', function (): void {
         $sessionId = storeWebSession($this->user);
 
         $response = $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $sessionId));
@@ -171,7 +171,7 @@ describe('revoking from a token client', function () {
         expect(DB::table('sessions')->count())->toBe(1);
     });
 
-    it('revokes all other sessions and access tokens, keeping the current access token', function () {
+    it('revokes all other sessions and access tokens, keeping the current access token', function (): void {
         storeWebSession($this->user);
         storeWebSession($this->user);
         $otherUsersSessionId = storeWebSession($otherUser = User::factory()->create());
@@ -190,8 +190,8 @@ describe('revoking from a token client', function () {
     });
 });
 
-describe('revoking from a cookie session', function () {
-    beforeEach(function () {
+describe('revoking from a cookie session', function (): void {
+    beforeEach(function (): void {
         $this->currentSessionId = storeWebSession($this->user);
         $this->actingAs($this->user, 'web')
             ->fromSpa()
@@ -200,7 +200,7 @@ describe('revoking from a cookie session', function () {
             ->withSession(['auth.password_confirmed_at' => Date::now()->getTimestamp()]);
     });
 
-    it('marks the current cookie session', function () {
+    it('marks the current cookie session', function (): void {
         storeWebSession($this->user);
 
         $response = $this->getJson('/api/user/sessions');
@@ -212,7 +212,7 @@ describe('revoking from a cookie session', function () {
             ->assertJsonPath('data.1.is_current', false);
     });
 
-    it('revokes all other sessions and access tokens, keeping the current session', function () {
+    it('revokes all other sessions and access tokens, keeping the current session', function (): void {
         storeWebSession($this->user);
         $token = $this->user->createToken('Phone');
 
@@ -223,7 +223,7 @@ describe('revoking from a cookie session', function () {
         $this->assertModelMissing($token->accessToken);
     });
 
-    it('returns 403 "current_session" for the current session', function () {
+    it('returns 403 "current_session" for the current session', function (): void {
         $response = $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $this->currentSessionId));
 
         $response->assertForbidden()->assertJsonPath('code', 'current_session');

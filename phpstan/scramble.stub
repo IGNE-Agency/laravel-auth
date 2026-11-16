@@ -94,6 +94,11 @@ class Parameter
      * @return $this
      */
     public function description(string $description) {}
+
+    /**
+     * @return $this
+     */
+    public function required(bool $required) {}
 }
 
 class Components

@@ -84,13 +84,11 @@ class AuditLog extends Model
      */
     public function prunable(): Builder
     {
-        $days = config('authentication.audit.prune_after_days');
-
-        if ($days === null) {
+        if (config('authentication.audit.prune_after_days') === null) {
             return static::query()->whereRaw('1 = 0');
         }
 
-        return static::query()->where('occurred_at', '<', Date::now()->subDays((int) $days));
+        return static::query()->where('occurred_at', '<', Date::now()->subDays(config()->integer('authentication.audit.prune_after_days')));
     }
 
     protected static function booted(): void

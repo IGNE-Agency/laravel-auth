@@ -25,9 +25,10 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\PasswordResetLinkSent;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
@@ -44,6 +45,7 @@ use Laravel\Fortify\Events\TwoFactorAuthenticationEvent;
 use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
 use Laravel\Fortify\Events\ValidTwoFactorAuthenticationCodeProvided;
 use Laravel\Fortify\Fortify;
+use LogicException;
 
 /**
  * Writes Laravel's, Fortify's and the package's security events to the audit
@@ -105,7 +107,7 @@ final class AuditEventSubscriber
     {
         $guard = $this->container->make(AuthFactory::class)->guard($event->guard);
 
-        if (method_exists($guard, 'viaRemember') && $guard->viaRemember() === true) {
+        if ($guard instanceof StatefulGuard && $guard->viaRemember()) {
             return;
         }
 
@@ -309,17 +311,21 @@ final class AuditEventSubscriber
     ): void {
         $config = $this->container->make(Repository::class);
 
-        if (! $config->get('authentication.audit.enabled', true)) {
+        if (! $config->boolean('authentication.audit.enabled', true)) {
             return;
         }
 
         $request = $this->request();
         $httpRequest = $request !== null && $request->route() !== null ? $request : null;
 
-        /** @var class-string<RecordAuditLogAction> $action */
-        $action = $config->get('authentication.audit.actions.record_audit_log', RecordAuditLogAction::class);
+        $actionClass = $config->string('authentication.audit.actions.record_audit_log', RecordAuditLogAction::class);
+        $action = $this->container->make($actionClass);
 
-        $this->container->make($action)->execute(new AuditEntry(
+        if (! $action instanceof RecordAuditLogAction) {
+            throw new LogicException("The record audit log action [{$actionClass}] must extend [".RecordAuditLogAction::class.'].');
+        }
+
+        $action->execute(new AuditEntry(
             event: $event,
             occurredAt: $occurredAt ?? Date::now(),
             actor: $actor,

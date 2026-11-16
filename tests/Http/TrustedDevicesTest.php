@@ -8,7 +8,7 @@ use Igne\Auth\TwoFactor\Models\TrustedDevice;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 
-it('lists the user\'s own trusted devices and marks the one the request comes from', function () {
+it('lists the user\'s own trusted devices and marks the one the request comes from', function (): void {
     $this->freezeSecond();
     $user = User::factory()->create();
     $token = $user->createToken('phone');
@@ -49,7 +49,7 @@ it('lists the user\'s own trusted devices and marks the one the request comes fr
     ]]);
 });
 
-it('marks the remembered device whose device token the request sends', function () {
+it('marks the remembered device whose device token the request sends', function (): void {
     $user = User::factory()->create();
     $device = TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->create();
 
@@ -60,17 +60,17 @@ it('marks the remembered device whose device token the request sends', function 
     $response->assertOk()->assertJsonPath('data.0.id', $device->id)->assertJsonPath('data.0.is_current', true);
 });
 
-it('returns 401 to a guest', function () {
+it('returns 401 to a guest', function (): void {
     $this->getJson('/api/user/devices')->assertUnauthorized();
 });
 
-describe('revoking a device', function () {
-    beforeEach(function () {
+describe('revoking a device', function (): void {
+    beforeEach(function (): void {
         $this->user = User::factory()->create();
         $this->withToken($this->user->createToken('phone')->plainTextToken);
     });
 
-    it('revokes the user\'s device after a password confirmation', function () {
+    it('revokes the user\'s device after a password confirmation', function (): void {
         Event::fake([DeviceTrustRevoked::class]);
         $device = TrustedDevice::factory()->for($this->user, 'authenticatable')->create();
         $otherDevice = TrustedDevice::factory()->for($this->user, 'authenticatable')->create();
@@ -84,7 +84,7 @@ describe('revoking a device', function () {
         Event::assertDispatched(DeviceTrustRevoked::class, fn (DeviceTrustRevoked $event): bool => $event->deviceId === $device->id && $event->reason === 'revoked');
     });
 
-    it('returns 423 without a recent password confirmation', function () {
+    it('returns 423 without a recent password confirmation', function (): void {
         $device = TrustedDevice::factory()->for($this->user, 'authenticatable')->create();
 
         $response = $this->deleteJson("/api/user/devices/{$device->id}");
@@ -93,7 +93,7 @@ describe('revoking a device', function () {
         $this->assertModelExists($device);
     });
 
-    it('returns 404 for a device of another user', function () {
+    it('returns 404 for a device of another user', function (): void {
         $device = TrustedDevice::factory()->for(User::factory(), 'authenticatable')->create();
         $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 

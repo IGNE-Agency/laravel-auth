@@ -6,8 +6,9 @@ namespace Igne\Auth\Audit\Actions;
 
 use Igne\Auth\Audit\AuditEntry;
 use Igne\Auth\Audit\Models\AuditLog;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
+use LogicException;
 
 /**
  * Writes an audit entry to the audit log model configured in
@@ -21,8 +22,11 @@ class RecordAuditLogAction
 
     public function execute(AuditEntry $entry): void
     {
-        /** @var class-string<AuditLog> $model */
-        $model = $this->config->get('authentication.audit.model', AuditLog::class);
+        $model = $this->config->string('authentication.audit.model', AuditLog::class);
+
+        if (! is_a($model, AuditLog::class, true)) {
+            throw new LogicException("The audit log model [{$model}] must extend [".AuditLog::class.'].');
+        }
 
         $log = new $model([
             'occurred_at' => $entry->occurredAt,

@@ -11,8 +11,8 @@ use Igne\Auth\Http\DeviceName;
 use Igne\Auth\Http\Exceptions\CurrentSessionException;
 use Igne\Auth\Tokens\AccessToken;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Query\Builder;
@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
+use LogicException;
+use stdClass;
 
 /**
  * The places a user is logged in, and ending them: web sessions from the
@@ -75,17 +77,18 @@ final class ActiveSessions
         $currentSessionHash = self::currentSessionHash($request);
         $currentTokenId = $this->tokens->currentTokenId($user);
 
-        $webSessions = $this->webSessions($user)->map(static function (object $row) use ($currentSessionHash): ActiveSession {
-            $hash = self::hashSessionId((string) data_get($row, 'id'));
+        $webSessions = $this->webSessions($user)->map(static function (stdClass $row) use ($currentSessionHash): ActiveSession {
+            $hash = self::hashSessionId(self::sessionIdOf($row));
             $ipAddress = data_get($row, 'ip_address');
             $userAgent = data_get($row, 'user_agent');
+            $lastActivity = data_get($row, 'last_activity');
 
             return new ActiveSession(
                 id: self::SESSION_PREFIX.$hash,
                 type: Channel::Session,
                 name: DeviceName::fromUserAgent(is_string($userAgent) ? $userAgent : null),
                 ipAddress: is_string($ipAddress) ? $ipAddress : null,
-                lastActiveAt: Date::createFromTimestamp((int) data_get($row, 'last_activity')),
+                lastActiveAt: is_numeric($lastActivity) ? Date::createFromTimestamp($lastActivity) : null,
                 isCurrent: $hash === $currentSessionHash,
             );
         });
@@ -139,7 +142,7 @@ final class ActiveSessions
         $currentTokenId = $this->tokens->currentTokenId($user);
 
         $this->webSessions($user)
-            ->map(static fn (object $row): string => (string) data_get($row, 'id'))
+            ->map(static fn (stdClass $row): string => self::sessionIdOf($row))
             ->reject(static fn (string $sessionId): bool => self::hashSessionId($sessionId) === $currentSessionHash)
             ->each(fn (string $sessionId) => $this->deleteWebSession($user, $sessionId));
 
@@ -172,7 +175,7 @@ final class ActiveSessions
         }
 
         $sessionId = $this->webSessions($user)
-            ->map(static fn (object $row): string => (string) data_get($row, 'id'))
+            ->map(static fn (stdClass $row): string => self::sessionIdOf($row))
             ->first(static fn (string $sessionId): bool => hash_equals(self::hashSessionId($sessionId), $hash));
 
         if ($sessionId === null) {
@@ -196,7 +199,7 @@ final class ActiveSessions
      * Get the user's web sessions that have not expired. Only the "database"
      * session driver stores them where they can be listed.
      *
-     * @return Collection<int, object>
+     * @return Collection<int, stdClass>
      */
     private function webSessions(Authenticatable $user): Collection
     {
@@ -204,9 +207,8 @@ final class ActiveSessions
             return new Collection;
         }
 
-        $lifetimeMinutes = (int) $this->config->get('session.lifetime', 120);
+        $lifetimeMinutes = $this->config->integer('session.lifetime', 120);
 
-        /** @var Collection<int, object> */
         return $this->sessionTable()
             ->where('user_id', $user->getAuthIdentifier())
             ->where('last_activity', '>=', Date::now()->subMinutes($lifetimeMinutes)->getTimestamp())
@@ -221,8 +223,9 @@ final class ActiveSessions
      */
     private function activeTokens(Authenticatable $user): Collection
     {
-        $idleMinutes = $this->config->get('authentication.tokens.idle_expires_in_minutes');
-        $idleCutoff = $idleMinutes === null ? null : Date::now()->subMinutes((int) $idleMinutes);
+        $idleCutoff = $this->config->get('authentication.tokens.idle_expires_in_minutes') === null
+            ? null
+            : Date::now()->subMinutes($this->config->integer('authentication.tokens.idle_expires_in_minutes'));
 
         return $this->tokens->list($user)->filter(static function (AccessToken $token) use ($idleCutoff): bool {
             $lastActivity = $token->lastUsedAt ?? $token->createdAt;
@@ -250,6 +253,20 @@ final class ActiveSessions
         $connection = $this->config->get('session.connection');
 
         return $this->database->connection(is_string($connection) ? $connection : null)
-            ->table((string) $this->config->get('session.table', 'sessions'));
+            ->table($this->config->string('session.table', 'sessions'));
+    }
+
+    /**
+     * Get the id of a row of the session table.
+     */
+    private static function sessionIdOf(stdClass $row): string
+    {
+        $sessionId = data_get($row, 'id');
+
+        if (! is_string($sessionId)) {
+            throw new LogicException('The session table must store the session ids as strings.');
+        }
+
+        return $sessionId;
     }
 }
