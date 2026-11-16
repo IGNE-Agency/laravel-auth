@@ -42,12 +42,25 @@ With the default prefix `api`:
 | POST | `user/confirm-password` | `authentication.password.confirm.store` |
 | GET | `user/confirmed-password-status` | `authentication.password.confirmation` |
 
-The password routes follow Fortify's `resetPasswords` and `updatePasswords` features. They run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`. When the app uses [Scramble](https://scramble.dedoc.co), the package documents its routes in the app's OpenAPI document.
+The password routes follow Fortify's `resetPasswords` and `updatePasswords` features. They run thin subclasses of Fortify's controllers that validate the input with `ResetPasswordRequest` and `UpdatePasswordRequest` first; the strength of a new password comes from the app's `Password::defaults()`.
+
+## OpenAPI
+
+When the app uses [Scramble](https://scramble.dedoc.co) 0.13.48 or a later 0.13 release, the package documents its routes in the app's default API: explicit request and response schemas per route, the `bearer`, `session` and `xsrf` security schemes, and the responses of the package exceptions the app's own code throws. Scramble stays optional; the package conflicts with Scramble versions outside that range, because its extension API changes between 0.x releases.
+
+- The route schemas live in `src/OpenApi/Schemas`, next to the logic. Everything that calls Scramble lives in `Igne\Auth\OpenApi\Scramble`, which `ScrambleIntegration` wires up when Scramble is installed.
+- `tests/OpenApi/SpecTest.php` snapshots the part of the generated document the package owns: the operations of the `authentication.*` routes and the components. After changing a route's schema, refresh the snapshot with `composer openapi` and review its diff.
+- Every HTTP test of a package route ends with `->assertMatchesOpenApi('<route name>')`. It fails when the response's status is not documented for that route, and validates a documented JSON body against its schema (JSON Schema 2020-12 with `opis/json-schema`). A failure means the schema or the response is wrong; fix that, not the assertion.
 
 ## Tests
 
-The tests are Pest tests on Testbench. Inside an app, bind the test case in the app's `tests/Pest.php`:
+The package runs on its own, on Orchestra Testbench with Fortify, Sanctum and Scramble:
 
-```php
-pest()->extend(Igne\Auth\Tests\TestCase::class)->in('../packages/igne-agency/laravel-auth/tests');
+```bash
+composer install
+composer lint      # Pint
+composer analyse   # Larastan, level max on src and tests/Fixtures
+composer test      # Pest
 ```
+
+`tests/TestCase.php` configures the app the suite needs: an in-memory SQLite database, array cache, session and mail, and the fixture user in `tests/Fixtures`. Without Scramble or `opis/json-schema` installed, the snapshot test is skipped and `assertMatchesOpenApi` asserts nothing; CI runs the suite that way too.
