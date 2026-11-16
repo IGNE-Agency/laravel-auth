@@ -10,7 +10,7 @@ use Igne\Auth\LoginCodes\Generators\LoginCodeGenerator;
 use Igne\Auth\LoginCodes\LoginCodePurpose;
 use Igne\Auth\LoginCodes\LoginCodeUrl;
 use Igne\Auth\LoginCodes\Models\LoginCode;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
 use Illuminate\Http\Request;
@@ -40,8 +40,8 @@ class CreateLoginCodeAction
      */
     public function execute(LoginCodeAuthenticatable $user, LoginCodePurpose $purpose, ?Request $request = null): LoginCode
     {
-        $code = $this->generator()->generate((int) $this->config->get('authentication.login_codes.code_length', 6));
-        $expiresAt = Date::now()->addMinutes((int) $this->config->get('authentication.login_codes.default_expires_in_minutes', 10));
+        $code = $this->generator()->generate($this->config->integer('authentication.login_codes.code_length', 6));
+        $expiresAt = Date::now()->addMinutes($this->config->integer('authentication.login_codes.default_expires_in_minutes', 10));
 
         if ($this->config->get('authentication.login_codes.only_one_active_login_code_per_user', true)) {
             $user->loginCodes()->where('purpose', $purpose)->whereNull('consumed_at')->delete();
@@ -49,7 +49,6 @@ class CreateLoginCodeAction
 
         $relation = $user->loginCodes();
 
-        /** @var LoginCode $loginCode */
         $loginCode = $relation->create([
             'purpose' => $purpose,
             'code_hash' => $relation->getRelated()::hashFor($code),
@@ -67,10 +66,14 @@ class CreateLoginCodeAction
 
     private function generator(): LoginCodeGenerator
     {
-        /** @var class-string<LoginCodeGenerator> $generator */
-        $generator = $this->config->get('authentication.login_codes.code_generator');
+        $generatorClass = $this->config->string('authentication.login_codes.code_generator');
+        $generator = $this->container->make($generatorClass);
 
-        return $this->container->make($generator);
+        if (! $generator instanceof LoginCodeGenerator) {
+            throw new LogicException("The login code generator [{$generatorClass}] must implement [".LoginCodeGenerator::class.'].');
+        }
+
+        return $generator;
     }
 
     /**
@@ -81,9 +84,8 @@ class CreateLoginCodeAction
      */
     private function notification(#[SensitiveParameter] string $code, CarbonInterface $expiresAt, ?string $url, LoginCodePurpose $purpose): Notification
     {
-        /** @var class-string $class */
-        $class = $this->config->get('authentication.login_codes.notification');
-        $notification = new $class($code, $expiresAt, $url, $purpose);
+        $class = $this->config->string('authentication.login_codes.notification');
+        $notification = class_exists($class) ? new $class($code, $expiresAt, $url, $purpose) : null;
 
         if (! $notification instanceof Notification) {
             throw new LogicException("The login code notification [{$class}] must be a notification.");

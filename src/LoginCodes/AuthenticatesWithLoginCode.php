@@ -6,6 +6,7 @@ namespace Igne\Auth\LoginCodes;
 
 use Igne\Auth\LoginCodes\Models\LoginCode;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use LogicException;
 
 /**
  * The default implementation of the LoginCodeAuthenticatable contract.
@@ -30,8 +31,11 @@ trait AuthenticatesWithLoginCode
      */
     public function loginCodes(): MorphMany
     {
-        /** @var class-string<LoginCode> $model */
-        $model = config('authentication.login_codes.model', LoginCode::class);
+        $model = config()->string('authentication.login_codes.model', LoginCode::class);
+
+        if (! is_a($model, LoginCode::class, true)) {
+            throw new LogicException("The login code model [{$model}] must extend [".LoginCode::class.'].');
+        }
 
         return $this->morphMany($model, 'authenticatable');
     }

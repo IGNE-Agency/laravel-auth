@@ -20,6 +20,7 @@ use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Laravel\Sanctum\Sanctum;
 use Laravel\Sanctum\SanctumServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use PHPUnit\Framework\Assert;
 use ReflectionClass;
 
 /**
@@ -119,8 +120,11 @@ abstract class TestCase extends Orchestra
      */
     protected function lastLoginCodeNotification(User $user): LoginCodeNotification
     {
-        /** @var LoginCodeNotification */
-        return Notification::sent($user, LoginCodeNotification::class)->last();
+        $notification = Notification::sent($user, LoginCodeNotification::class)->last();
+
+        Assert::assertInstanceOf(LoginCodeNotification::class, $notification, 'No login code was sent to the user.');
+
+        return $notification;
     }
 
     /**

@@ -10,7 +10,7 @@ use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 
-it('emails a six-digit code that expires in ten minutes and stores only its hash', function () {
+it('emails a six-digit code that expires in ten minutes and stores only its hash', function (): void {
     $this->freezeTime();
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();
@@ -31,7 +31,7 @@ it('emails a six-digit code that expires in ten minutes and stores only its hash
         ->and($loginCode->matches($notification->code))->toBeTrue();
 });
 
-it('makes the previous code for the same purpose stop working when a new one is sent', function () {
+it('makes the previous code for the same purpose stop working when a new one is sent', function (): void {
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();
     $create = app(CreateLoginCodeAction::class);
@@ -46,7 +46,7 @@ it('makes the previous code for the same purpose stop working when a new one is 
         ->and(app(ConsumeLoginCodeAction::class)->execute($user, LoginCodePurpose::Login, $previousCode))->toBe(ConsumeLoginCodeResult::Incorrect);
 });
 
-it('links to the configured URL with the email address and code filled in', function () {
+it('links to the configured URL with the email address and code filled in', function (): void {
     config(['authentication.login_codes.link_url' => 'https://app.example.com/login?email={email}&code={code}']);
     $user = User::factory()->withoutPassword()->create(['email' => 'ada+test@example.com']);
     Notification::fake();
@@ -57,7 +57,7 @@ it('links to the configured URL with the email address and code filled in', func
     expect($notification->url)->toBe('https://app.example.com/login?email=ada%2Btest%40example.com&code='.$notification->code);
 });
 
-it('sends no link when no link URL is configured', function () {
+it('sends no link when no link URL is configured', function (): void {
     config(['authentication.login_codes.link_url' => null]);
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();

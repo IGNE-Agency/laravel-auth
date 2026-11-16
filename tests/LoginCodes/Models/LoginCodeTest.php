@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Igne\Auth\LoginCodes\Models\LoginCode;
 use Igne\Auth\Tests\Fixtures\User;
 
-it('prunes codes that expired or were used more than a day ago', function () {
+it('prunes codes that expired or were used more than a day ago', function (): void {
     $this->freezeTime();
     $user = User::factory()->create();
     $codes = LoginCode::factory()->for($user, 'authenticatable');
@@ -21,7 +21,7 @@ it('prunes codes that expired or were used more than a day ago', function () {
         ->toBe(collect([$active, $recentlyExpired, $recentlyUsed])->pluck('id')->sort()->values()->all());
 });
 
-it('never shows the code hash when serialized', function () {
+it('never shows the code hash when serialized', function (): void {
     $loginCode = LoginCode::factory()->for(User::factory()->create(), 'authenticatable')->create();
 
     expect($loginCode->toArray())->not->toHaveKey('code_hash');

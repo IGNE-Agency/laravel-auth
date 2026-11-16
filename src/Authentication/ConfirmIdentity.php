@@ -9,8 +9,9 @@ use Igne\Auth\LoginCodes\Actions\ConsumeLoginCodeAction;
 use Igne\Auth\LoginCodes\ConsumeLoginCodeResult;
 use Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable;
 use Igne\Auth\LoginCodes\LoginCodePurpose;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Container\Container;
+use LogicException;
 use SensitiveParameter;
 
 /**
@@ -61,9 +62,13 @@ final class ConfirmIdentity
 
     private function consumeConfirmationCode(LoginCodeAuthenticatable $user, #[SensitiveParameter] string $code): bool
     {
-        /** @var class-string<ConsumeLoginCodeAction> $action */
-        $action = $this->config->get('authentication.login_codes.actions.consume_login_code');
+        $actionClass = $this->config->string('authentication.login_codes.actions.consume_login_code');
+        $action = $this->container->make($actionClass);
 
-        return $this->container->make($action)->execute($user, LoginCodePurpose::Confirm, $code) === ConsumeLoginCodeResult::Ok;
+        if (! $action instanceof ConsumeLoginCodeAction) {
+            throw new LogicException("The consume login code action [{$actionClass}] must extend [".ConsumeLoginCodeAction::class.'].');
+        }
+
+        return $action->execute($user, LoginCodePurpose::Confirm, $code) === ConsumeLoginCodeResult::Ok;
     }
 }

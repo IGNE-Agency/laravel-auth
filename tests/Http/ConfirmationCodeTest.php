@@ -13,12 +13,12 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(function () {
+beforeEach(function (): void {
     Route::middleware([AcceptJson::class, 'api', StartHeaderSession::class, 'auth:sanctum', 'password.confirm'])
         ->get('confirmed-area', fn (): array => ['confirmed' => true]);
 });
 
-it('emails a confirmation code without a link to a user who confirms with codes', function () {
+it('emails a confirmation code without a link to a user who confirms with codes', function (): void {
     config(['authentication.login_codes.link_url' => 'https://app.example.com/login?code={code}']);
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();
@@ -31,7 +31,7 @@ it('emails a confirmation code without a link to a user who confirms with codes'
     Event::assertDispatched(LoginCodeRequested::class, fn (LoginCodeRequested $event): bool => $event->user->is($user) && $event->purpose === LoginCodePurpose::Confirm);
 });
 
-it('confirms the identity of a user without a password with an emailed code', function () {
+it('confirms the identity of a user without a password with an emailed code', function (): void {
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();
     $this->withToken($user->createToken('test')->plainTextToken);
@@ -46,7 +46,7 @@ it('confirms the identity of a user without a password with an emailed code', fu
     $after->assertOk();
 });
 
-it('does not confirm with a login code', function () {
+it('does not confirm with a login code', function (): void {
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $this->withToken($user->createToken('test')->plainTextToken);
@@ -57,7 +57,7 @@ it('does not confirm with a login code', function () {
     $this->getJson('/confirmed-area')->assertStatus(423);
 });
 
-it('refuses a confirmation code to a user who confirms with a password with 403', function () {
+it('refuses a confirmation code to a user who confirms with a password with 403', function (): void {
     $user = User::factory()->create();
     Notification::fake();
 
@@ -67,7 +67,7 @@ it('refuses a confirmation code to a user who confirms with a password with 403'
     Notification::assertNothingSent();
 });
 
-it('throttles confirmation code requests with 429', function () {
+it('throttles confirmation code requests with 429', function (): void {
     $user = User::factory()->withoutPassword()->create();
     Notification::fake();
     $this->withToken($user->createToken('test')->plainTextToken);
@@ -81,7 +81,7 @@ it('throttles confirmation code requests with 429', function () {
     Notification::assertSentToTimes($user, LoginCodeNotification::class, 3);
 });
 
-it('answers a guest with 401', function () {
+it('answers a guest with 401', function (): void {
     $response = $this->postJson('/api/user/confirm-password/code');
 
     $response->assertUnauthorized();

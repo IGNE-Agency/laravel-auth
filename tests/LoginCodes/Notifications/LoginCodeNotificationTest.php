@@ -15,7 +15,7 @@ function mailLines(MailMessage $mail): array
     return array_map(strval(...), [...$mail->introLines, ...$mail->outroLines]);
 }
 
-it('mails the login code with its expiry and a link to log in', function () {
+it('mails the login code with its expiry and a link to log in', function (): void {
     $this->freezeTime();
     $notification = new LoginCodeNotification('123456', now()->addMinutes(10), 'https://app.example.com/login?code=123456');
 
@@ -32,7 +32,7 @@ it('mails the login code with its expiry and a link to log in', function () {
         ]);
 });
 
-it('mails only the code when there is no link', function () {
+it('mails only the code when there is no link', function (): void {
     $notification = new LoginCodeNotification('123456', now()->addMinutes(10));
 
     $mail = $notification->toMail(User::factory()->make());
@@ -41,7 +41,7 @@ it('mails only the code when there is no link', function () {
         ->and(mailLines($mail))->toContain('Your code: 123456');
 });
 
-it('mails a confirmation code under its own subject', function () {
+it('mails a confirmation code under its own subject', function (): void {
     $notification = new LoginCodeNotification('123456', now()->addMinutes(10), purpose: LoginCodePurpose::Confirm);
 
     $mail = $notification->toMail(User::factory()->make());
@@ -50,7 +50,7 @@ it('mails a confirmation code under its own subject', function () {
         ->and(mailLines($mail)[0])->toBe('Use this code to confirm it is you.');
 });
 
-it('counts the minutes left when the mail is sent', function () {
+it('counts the minutes left when the mail is sent', function (): void {
     $this->freezeTime();
     $notification = new LoginCodeNotification('123456', now()->addMinutes(10));
     $this->travel(4)->minutes();

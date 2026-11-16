@@ -9,8 +9,9 @@ use Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable;
 use Igne\Auth\LoginCodes\LoginCodePurpose;
 use Igne\Auth\LoginCodes\Models\LoginCode;
 use Illuminate\Cache\RateLimiter;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Support\Facades\Date;
+use LogicException;
 use SensitiveParameter;
 
 /**
@@ -108,25 +109,27 @@ class ConsumeLoginCodeAction
             ->where('attempts', '>=', $this->maxAttemptsPerCode())
             ->update(['expires_at' => Date::now()]);
 
-        $this->limiter->hit($limiterKey, (int) $this->config->get('authentication.login_codes.rate_limit_attempts.time_window_in_seconds', 3600));
+        $this->limiter->hit($limiterKey, $this->config->integer('authentication.login_codes.rate_limit_attempts.time_window_in_seconds', 3600));
     }
 
     private function limiterKey(LoginCodeAuthenticatable $user): string
     {
-        return sprintf(
-            'authentication:login-code-failures:%s:%s',
-            $user->loginCodes()->getMorphClass(),
-            (string) $user->getAuthIdentifier(),
-        );
+        $userId = $user->getAuthIdentifier();
+
+        if (! is_int($userId) && ! is_string($userId)) {
+            throw new LogicException(sprintf('The user model [%s] needs an integer or string identifier.', $user::class));
+        }
+
+        return sprintf('authentication:login-code-failures:%s:%s', $user->loginCodes()->getMorphClass(), $userId);
     }
 
     private function maxAttemptsPerCode(): int
     {
-        return (int) $this->config->get('authentication.login_codes.max_attempts_per_code', 5);
+        return $this->config->integer('authentication.login_codes.max_attempts_per_code', 5);
     }
 
     private function maxFailuresPerUser(): int
     {
-        return (int) $this->config->get('authentication.login_codes.rate_limit_attempts.max_attempts_per_user', 20);
+        return $this->config->integer('authentication.login_codes.rate_limit_attempts.max_attempts_per_user', 20);
     }
 }

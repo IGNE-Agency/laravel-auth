@@ -11,11 +11,12 @@ use Igne\Auth\LoginCodes\Contracts\LoginCodeAuthenticatable;
 use Igne\Auth\LoginCodes\Http\Requests\RequestLoginCodeRequest;
 use Igne\Auth\LoginCodes\Http\Responses\LoginCodeRequestedResponse;
 use Igne\Auth\LoginCodes\LoginCodePurpose;
-use Illuminate\Contracts\Config\Repository;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Timebox;
+use LogicException;
 
 /**
  * Emails a login code to a user that can log in with one. The answer is the
@@ -41,13 +42,17 @@ final class LoginCodeController
                 return;
             }
 
-            /** @var class-string<CreateLoginCodeAction> $action */
-            $action = $this->config->get('authentication.login_codes.actions.create_login_code');
+            $actionClass = $this->config->string('authentication.login_codes.actions.create_login_code');
+            $action = $this->container->make($actionClass);
 
-            $this->container->make($action)->execute($user, LoginCodePurpose::Login, $request);
+            if (! $action instanceof CreateLoginCodeAction) {
+                throw new LogicException("The create login code action [{$actionClass}] must extend [".CreateLoginCodeAction::class.'].');
+            }
+
+            $action->execute($user, LoginCodePurpose::Login, $request);
 
             $this->events->dispatch(new LoginCodeRequested($user, LoginCodePurpose::Login));
-        }, (int) $this->config->get('auth.timebox_duration', 200000));
+        }, $this->config->integer('auth.timebox_duration', 200000));
 
         return (new LoginCodeRequestedResponse)->toResponse($request);
     }

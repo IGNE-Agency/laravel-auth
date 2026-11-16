@@ -15,6 +15,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\Request;
 use Illuminate\Support\Timebox;
 use Laravel\Fortify\Fortify;
+use LogicException;
 use SensitiveParameter;
 
 /**
@@ -85,7 +86,6 @@ final class AuthenticateCredentials
             return null;
         }
 
-        /** @var array{Authenticatable, AuthenticationMethod}|null */
         return $this->timebox->call(function (Timebox $timebox) use ($username, $secret): ?array {
             $user = $this->users->findByUsername($username);
 
@@ -142,9 +142,13 @@ final class AuthenticateCredentials
             return false;
         }
 
-        /** @var class-string<ConsumeLoginCodeAction> $action */
-        $action = $this->config->get('authentication.login_codes.actions.consume_login_code');
+        $actionClass = $this->config->string('authentication.login_codes.actions.consume_login_code');
+        $action = $this->container->make($actionClass);
 
-        return $this->container->make($action)->execute($user, LoginCodePurpose::Login, $code) === ConsumeLoginCodeResult::Ok;
+        if (! $action instanceof ConsumeLoginCodeAction) {
+            throw new LogicException("The consume login code action [{$actionClass}] must extend [".ConsumeLoginCodeAction::class.'].');
+        }
+
+        return $action->execute($user, LoginCodePurpose::Login, $code) === ConsumeLoginCodeResult::Ok;
     }
 }

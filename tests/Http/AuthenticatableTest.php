@@ -13,16 +13,16 @@ it('returns the authenticated user without a wrapper', function (): void {
     $response->assertOk()->assertExactJson(['id' => $user->id, 'email' => 'ada@example.com', 'confirmation_method' => 'password'])->assertMatchesOpenApi('authentication.user');
 });
 
-it('tells how the user confirms their identity', function (Closure $makeUser, ?string $confirmationMethod) {
+it('tells how the user confirms their identity', function (Closure $makeUser, ?string $confirmationMethod): void {
     $user = $makeUser();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
 
     $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod);
 })->with([
-    'a user with a password, who may also use codes' => [fn () => User::factory()->create(), 'password'],
-    'a user without a password' => [fn () => User::factory()->withoutPassword()->create(), 'login_code'],
-    'a user with neither' => [fn () => User::factory()->withoutPassword()->withoutLoginCodes()->create(), null],
+    'a user with a password, who may also use codes' => [fn (): User => User::factory()->create(), 'password'],
+    'a user without a password' => [fn (): User => User::factory()->withoutPassword()->create(), 'login_code'],
+    'a user with neither' => [fn (): User => User::factory()->withoutPassword()->withoutLoginCodes()->create(), null],
 ]);
 
 it('answers a guest with a JSON 401, even without an Accept header', function (): void {

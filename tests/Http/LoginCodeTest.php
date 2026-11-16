@@ -9,25 +9,26 @@ use Igne\Auth\LoginCodes\Notifications\LoginCodeNotification;
 use Igne\Auth\Tests\Fixtures\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Testing\TestResponse;
 
-describe('requesting a code', function () {
-    it('answers 202 with the same body whether or not a code is sent', function () {
+describe('requesting a code', function (): void {
+    it('answers 202 with the same body whether or not a code is sent', function (): void {
         $codeUser = User::factory()->withoutPassword()->create();
         $passwordUser = User::factory()->withoutLoginCodes()->create();
         Notification::fake();
         Event::fake([LoginCodeRequested::class]);
 
         $responses = collect([$codeUser->email, 'nobody@example.com', $passwordUser->email])
-            ->map(fn (string $email) => $this->postJson('/api/auth/login-code', ['email' => $email]));
+            ->map(fn (string $email): TestResponse => $this->postJson('/api/auth/login-code', ['email' => $email]));
 
-        $responses->each(fn ($response) => $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.']));
+        $responses->each(fn (TestResponse $response): TestResponse => $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.']));
         Notification::assertSentToTimes($codeUser, LoginCodeNotification::class, 1);
         Notification::assertNotSentTo($passwordUser, LoginCodeNotification::class);
         Event::assertDispatchedTimes(LoginCodeRequested::class, 1);
         Event::assertDispatched(LoginCodeRequested::class, fn (LoginCodeRequested $event): bool => $event->user->is($codeUser) && $event->purpose === LoginCodePurpose::Login);
     });
 
-    it('answers 202 with the same body when the requests for an address are rate-limited', function () {
+    it('answers 202 with the same body when the requests for an address are rate-limited', function (): void {
         $user = User::factory()->withoutPassword()->create();
         Notification::fake();
 
@@ -40,7 +41,7 @@ describe('requesting a code', function () {
         Notification::assertSentToTimes($user, LoginCodeNotification::class, 3);
     });
 
-    it('finds the user by the lowercased email address when Fortify lowercases usernames', function () {
+    it('finds the user by the lowercased email address when Fortify lowercases usernames', function (): void {
         config(['fortify.lowercase_usernames' => true]);
         $user = User::factory()->withoutPassword()->create(['email' => 'ada@example.com']);
         Notification::fake();
@@ -50,7 +51,7 @@ describe('requesting a code', function () {
         Notification::assertSentToTimes($user, LoginCodeNotification::class, 1);
     });
 
-    it('rejects an invalid email address with 422', function () {
+    it('rejects an invalid email address with 422', function (): void {
         Notification::fake();
 
         $response = $this->postJson('/api/auth/login-code', ['email' => 'not-an-email']);
@@ -60,8 +61,8 @@ describe('requesting a code', function () {
     });
 });
 
-describe('logging in with a code', function () {
-    it('gives a bearer client an access token for an emailed code', function () {
+describe('logging in with a code', function (): void {
+    it('gives a bearer client an access token for an emailed code', function (): void {
         $user = User::factory()->withoutPassword()->create();
         Notification::fake();
         $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted();
@@ -73,7 +74,7 @@ describe('logging in with a code', function () {
             ->and($user->loginCodes()->sole()->consumed_at)->not->toBeNull();
     });
 
-    it('logs the SPA into the session with a code', function () {
+    it('logs the SPA into the session with a code', function (): void {
         $user = User::factory()->withoutPassword()->create();
         LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
 
@@ -83,7 +84,7 @@ describe('logging in with a code', function () {
         $this->assertAuthenticatedAs($user, 'web');
     });
 
-    it('rejects a used code with 422', function () {
+    it('rejects a used code with 422', function (): void {
         $user = User::factory()->withoutPassword()->create();
         LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
         $this->loginForToken($user, '123456');
@@ -94,7 +95,7 @@ describe('logging in with a code', function () {
         expect($user->tokens()->count())->toBe(1);
     });
 
-    it('rejects a confirmation code with 422', function () {
+    it('rejects a confirmation code with 422', function (): void {
         $user = User::factory()->withoutPassword()->create();
         LoginCode::factory()->for($user, 'authenticatable')->forConfirmation()->withCode('123456')->create();
 
@@ -104,7 +105,7 @@ describe('logging in with a code', function () {
         expect($user->loginCodes()->sole()->consumed_at)->toBeNull();
     });
 
-    it('rejects the code of a user that can\'t log in with codes with 422', function () {
+    it('rejects the code of a user that can\'t log in with codes with 422', function (): void {
         $user = User::factory()->withoutLoginCodes()->create();
         LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
 
@@ -114,7 +115,7 @@ describe('logging in with a code', function () {
         expect($user->tokens()->count())->toBe(0);
     });
 
-    it('logs in a user who may use both with their password or a code', function () {
+    it('logs in a user who may use both with their password or a code', function (): void {
         $user = User::factory()->create();
         LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
 

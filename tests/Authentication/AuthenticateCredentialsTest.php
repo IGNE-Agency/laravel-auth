@@ -57,7 +57,7 @@ it('rehashes a password hashed with outdated settings on login', function (): vo
     expect(password_get_info($user->fresh()->password)['options']['cost'])->toBe(5);
 });
 
-it('records the login code as the proved factor', function () {
+it('records the login code as the proved factor', function (): void {
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $request = Request::create('/api/auth/login', 'POST', ['email' => $user->email, 'password' => '123456']);
@@ -68,7 +68,7 @@ it('records the login code as the proved factor', function () {
         ->and($request->attributes->get('authentication.methods'))->toBe([AuthenticationMethod::LoginCode]);
 });
 
-it('consumes a login code once when Fortify calls it twice for one login', function () {
+it('consumes a login code once when Fortify calls it twice for one login', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $loginCode = LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $request = Request::create('/api/auth/login', 'POST', ['email' => $user->email, 'password' => '123456']);
@@ -82,7 +82,7 @@ it('consumes a login code once when Fortify calls it twice for one login', funct
         ->and($loginCode->fresh()->consumed_at)->not->toBeNull();
 });
 
-it('tries a login code when the password does not match', function () {
+it('tries a login code when the password does not match', function (): void {
     $user = User::factory()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $request = Request::create('/api/auth/login', 'POST', ['email' => $user->email, 'password' => '123456']);

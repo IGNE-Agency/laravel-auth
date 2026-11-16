@@ -14,7 +14,7 @@ function consumeLoginCode(User $user, string $code, LoginCodePurpose $purpose = 
     return app(ConsumeLoginCodeAction::class)->execute($user, $purpose, $code);
 }
 
-it('consumes a correct code once', function () {
+it('consumes a correct code once', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $loginCode = LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
 
@@ -26,7 +26,7 @@ it('consumes a correct code once', function () {
         ->and($loginCode->fresh()->consumed_at)->not->toBeNull();
 });
 
-it('rejects a code after it expires', function () {
+it('rejects a code after it expires', function (): void {
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $this->travel(10)->minutes();
@@ -36,7 +36,7 @@ it('rejects a code after it expires', function () {
     expect($result)->toBe(ConsumeLoginCodeResult::Expired);
 });
 
-it('kills the code at the fifth wrong attempt', function () {
+it('kills the code at the fifth wrong attempt', function (): void {
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $wrongAttempts = collect(range(1, 5))->map(fn (): ConsumeLoginCodeResult => consumeLoginCode($user, '000000'));
@@ -47,11 +47,11 @@ it('kills the code at the fifth wrong attempt', function () {
         ->and($result)->toBe(ConsumeLoginCodeResult::TooManyAttempts);
 });
 
-it('keeps counting a user\'s wrong attempts when a new code is sent', function () {
+it('keeps counting a user\'s wrong attempts when a new code is sent', function (): void {
     config(['authentication.login_codes.rate_limit_attempts.max_attempts_per_user' => 3]);
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
-    collect(range(1, 3))->each(fn () => consumeLoginCode($user, '000000'));
+    collect(range(1, 3))->each(fn (): ConsumeLoginCodeResult => consumeLoginCode($user, '000000'));
     LoginCode::factory()->for($user, 'authenticatable')->withCode('654321')->create();
 
     $result = consumeLoginCode($user, '654321');
@@ -59,21 +59,21 @@ it('keeps counting a user\'s wrong attempts when a new code is sent', function (
     expect($result)->toBe(ConsumeLoginCodeResult::RateLimited);
 });
 
-it('forgets a user\'s wrong attempts after a correct code', function () {
+it('forgets a user\'s wrong attempts after a correct code', function (): void {
     config(['authentication.login_codes.rate_limit_attempts.max_attempts_per_user' => 3]);
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
-    collect(range(1, 2))->each(fn () => consumeLoginCode($user, '000000'));
+    collect(range(1, 2))->each(fn (): ConsumeLoginCodeResult => consumeLoginCode($user, '000000'));
     consumeLoginCode($user, '123456');
     LoginCode::factory()->for($user, 'authenticatable')->withCode('654321')->create();
-    collect(range(1, 2))->each(fn () => consumeLoginCode($user, '000000'));
+    collect(range(1, 2))->each(fn (): ConsumeLoginCodeResult => consumeLoginCode($user, '000000'));
 
     $result = consumeLoginCode($user, '654321');
 
     expect($result)->toBe(ConsumeLoginCodeResult::Ok);
 });
 
-it('accepts a code made under the previous app key', function () {
+it('accepts a code made under the previous app key', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $previousKey = config('app.key');
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
@@ -84,7 +84,7 @@ it('accepts a code made under the previous app key', function () {
     expect($result)->toBe(ConsumeLoginCodeResult::Ok);
 });
 
-it('does not accept a code made under a key that is no longer listed', function () {
+it('does not accept a code made under a key that is no longer listed', function (): void {
     $user = User::factory()->withoutPassword()->create();
     LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     config(['app.key' => 'base64:'.base64_encode(str_repeat('n', 32)), 'app.previous_keys' => []]);
@@ -94,7 +94,7 @@ it('does not accept a code made under a key that is no longer listed', function 
     expect($result)->toBe(ConsumeLoginCodeResult::Incorrect);
 });
 
-it('lets only one of two concurrent requests consume a code', function () {
+it('lets only one of two concurrent requests consume a code', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $loginCode = LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
     $consumedAt = now()->subHour()->startOfSecond();
@@ -109,7 +109,7 @@ it('lets only one of two concurrent requests consume a code', function () {
         ->and($loginCode->fresh()->consumed_at->equalTo($consumedAt))->toBeTrue();
 });
 
-it('only consumes a code made for the purpose', function () {
+it('only consumes a code made for the purpose', function (): void {
     $user = User::factory()->withoutPassword()->create();
     $loginCode = LoginCode::factory()->for($user, 'authenticatable')->withCode('123456')->create();
 

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Igne\Auth\Authentication;
 
 use Illuminate\Auth\AuthManager;
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
-use Illuminate\Contracts\Config\Repository;
 use Laravel\Fortify\Fortify;
 use LogicException;
 
@@ -26,8 +26,9 @@ final class UserProviderResolver
      */
     public function resolve(): UserProvider
     {
-        $guard = $this->config->get('fortify.guard', 'web');
-        $provider = $this->auth->createUserProvider($this->config->get("auth.guards.{$guard}.provider"));
+        $guard = $this->config->string('fortify.guard', 'web');
+        $providerName = $this->config->get("auth.guards.{$guard}.provider");
+        $provider = $this->auth->createUserProvider(is_string($providerName) ? $providerName : null);
 
         if ($provider === null) {
             throw new LogicException("The [{$guard}] guard has no user provider.");

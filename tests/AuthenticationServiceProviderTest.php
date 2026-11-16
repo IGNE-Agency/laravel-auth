@@ -43,7 +43,7 @@ it('prunes expired Sanctum tokens daily', function (): void {
         ->and($events->first()->expression)->toBe('0 0 * * *');
 });
 
-it('prunes login codes daily', function () {
+it('prunes login codes daily', function (): void {
     $events = collect(app(Schedule::class)->events())
         ->filter(fn (Event $event): bool => str_contains((string) $event->command, 'model:prune'));
 

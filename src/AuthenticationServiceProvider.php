@@ -200,8 +200,8 @@ final class AuthenticationServiceProvider extends ServiceProvider
     private static function loginCodeRequestLimit(string $maxRequestsKey): Limit
     {
         return Limit::perSecond(
-            (int) config("authentication.login_codes.rate_limit_requests.{$maxRequestsKey}"),
-            (int) config('authentication.login_codes.rate_limit_requests.time_window_in_seconds', 60),
+            config()->integer("authentication.login_codes.rate_limit_requests.{$maxRequestsKey}"),
+            config()->integer('authentication.login_codes.rate_limit_requests.time_window_in_seconds', 60),
         );
     }
 
@@ -226,7 +226,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
             }
 
             $schedule->command('sanctum:prune-expired', ['--hours' => 24])->daily();
-            $schedule->command('model:prune', ['--model' => [config('authentication.login_codes.model', LoginCode::class)]])->daily();
+            $schedule->command('model:prune', ['--model' => [config()->string('authentication.login_codes.model', LoginCode::class)]])->daily();
         });
     }
 
