@@ -1,0 +1,5 @@
+# Devices and sessions
+
+Users manage where they are logged in themselves. `GET user/devices` lists the devices they passed the two-factor challenge on; `GET user/sessions` lists their cookie sessions (only with the `database` session driver) and access tokens, with ids such as `session:{sha256 of the session id}` and `token:{id}`, never a raw session id. Both mark the one the request comes from with `is_current`. Revoking a device, a session or all other sessions needs a recent password confirmation (`password.confirm`, 423). The current session or access token can't be revoked there (403 `current_session`): logging out ends it. Revoking a cookie session also cycles the user's remember token, so a "remember me" cookie can't log the browser back in.
+
+With `two_factor.device_trust.expires_in_days` set to `'session'`, a cookie session's trust is a flag in that session, so it never appears in `GET user/devices`; ending the session ends the trust. A token client's trust for `'session'` is a device bound to its access token, listed until the token goes.

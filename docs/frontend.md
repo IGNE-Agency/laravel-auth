@@ -79,7 +79,7 @@ Prefer session mode for a browser app: the browser keeps the session cookie out 
 
 ### Backend setup
 
-The backend team sets this up once (it's in the package README):
+The backend team sets this up once (see [SPA cookie clients](clients.md#spa-cookie-clients)):
 
 - your SPA's host, with its port, in `SANCTUM_STATEFUL_DOMAINS` (e.g. `app.example.com`, or `localhost:5173` for local development);
 - `SESSION_DOMAIN` so the session cookie reaches the API from your SPA, e.g. `.example.com`;

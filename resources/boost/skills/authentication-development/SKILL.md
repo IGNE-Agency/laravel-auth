@@ -17,7 +17,7 @@ The middleware stack decides the mode (`Igne\Auth\Http\Channel`), never a header
 
 ## Documentation
 
-- `vendor/igne-agency/laravel-auth/README.md` covers install, config, SPA and token clients, Nova, Passport and OpenAPI.
+- `vendor/igne-agency/laravel-auth/README.md` covers the features and install, and links the docs in `vendor/igne-agency/laravel-auth/docs`: configuration, SPA and token clients (with Passport), login codes, two-factor authentication, devices and sessions, the audit log, routes, Nova, OpenAPI and the AI guidelines.
 - `vendor/igne-agency/laravel-auth/docs/concepts.md` explains the concepts, naming and authorization layers.
 - `vendor/igne-agency/laravel-auth/docs/frontend.md` is the guide for frontend developers: reading the OpenAPI document, session-mode and token clients, every flow and the error codes. Point frontend questions there, and keep it in step with the routes.
 - `config/authentication.php` documents every option. Fortify's own options stay in `config/fortify.php`.
