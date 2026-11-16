@@ -1,6 +1,6 @@
 # Concepts
 
-The words IGNE projects use for authentication and authorization, what this package builds of them, and where each check belongs. The same text ships as a Laravel Boost guideline (`resources/boost/guidelines/core.blade.php`), so AI agents in the app follow it too.
+The words IGNE projects use for authentication and authorization, what this package builds of them, and where each check belongs. The same text ships as a Laravel Boost guideline (`resources/boost/guidelines/core.blade.php`), so AI agents in the app follow it too; see the README's [AI guidelines](../README.md#ai-guidelines).
 
 ## Glossary
 
@@ -26,12 +26,12 @@ The words IGNE projects use for authentication and authorization, what this pack
 | Sessions and tokens | Built | SPA cookie sessions, access tokens with absolute and idle lifetimes, and header sessions that let token clients run Fortify's session-based flows. |
 | Devices and sessions self-service | Built | Users list and revoke their trusted devices, cookie sessions and access tokens. |
 | Audit Log | Built | An append-only `audit_logs` table, written from Laravel's, Fortify's and the package's events. |
-| OpenAPI | Built | Explicit schemas for every package route in the app's Scramble document. |
+| OpenAPI | Built | Explicit schemas for every package route in the app's Scramble document. The package's own tests snapshot them and validate every response against them. |
 | Provider | Default only | The package reads the user model from the guard's provider. Every project starts with one provider: `User`. |
 | Space, Role, Permission | Later | Concepts only. |
 | Scope | Later | Concept only. Access tokens get every Sanctum ability (`*`), and nothing checks them. |
 | SSO and external identities | Later | Concept only. |
-| Passport as token issuer | Later | Concept only. The token issuer contract leaves room for it; see the README. |
+| Passport as token issuer | Later | Concept only. The token issuer contract leaves room for it; see the README's [Passport](../README.md#passport) section. |
 
 When a feature needs a concept marked "later", use its name from this page instead of inventing a new one.
 
@@ -79,7 +79,7 @@ In a project on this package:
 3. **Route authorization:** the `can:` middleware or a Gate check.
 4. **Policy / handler:** a Laravel policy for the model.
 5. **Query scope:** an Eloquent scope on list queries.
-6. **Audit log:** the package records its own security events. See the README's audit log section.
+6. **Audit log:** the package records its own security events. See the README's [audit log](../README.md#audit-log) section.
 
 ## Package rules
 

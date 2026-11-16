@@ -17,8 +17,8 @@ The middleware stack decides the mode (`Igne\Auth\Http\Channel`), never a header
 
 ## Documentation
 
-- The package `README.md` covers install, config, SPA and token clients, Nova, Passport and OpenAPI.
-- `docs/concepts.md` in the package explains the concepts, naming and authorization layers.
+- `vendor/igne-agency/laravel-auth/README.md` covers install, config, SPA and token clients, Nova, Passport and OpenAPI.
+- `vendor/igne-agency/laravel-auth/docs/concepts.md` explains the concepts, naming and authorization layers.
 - `config/authentication.php` documents every option. Fortify's own options stay in `config/fortify.php`.
 - Use `search-docs` for Fortify and Sanctum behaviour the package builds on.
 
@@ -32,6 +32,7 @@ The middleware stack decides the mode (`Igne\Auth\Http\Channel`), never a header
 - **Tokens:** `Igne\Auth\Tokens\Contracts\IssuesAccessTokens` (default `SanctumAccessTokenIssuer`), set in `tokens.issuer`.
 - **Audit:** `Igne\Auth\Audit\Listeners\AuditEventSubscriber` writes `Igne\Auth\Audit\AuditEvent` entries through `audit.actions.record_audit_log` to `Igne\Auth\Audit\Models\AuditLog`.
 - **Errors:** package errors are `{message, code}` with `Igne\Auth\Http\ErrorCode`: `password_unavailable`, `login_code_unavailable`, `two_factor_setup_required`, `two_factor_required`, `current_session`.
+- **OpenAPI:** with Scramble installed, `Igne\Auth\OpenApi\Scramble\ScrambleIntegration` documents the package routes in the app's default API, from the explicit schemas in `Igne\Auth\OpenApi\Schemas\AuthenticationOperations` (keyed by route name).
 
 ## Workflows
 
@@ -76,10 +77,22 @@ The middleware stack decides the mode (`Igne\Auth\Http\Channel`), never a header
 
 ### Change a package route
 
+Package routes change in the package's own repository (`IGNE-Agency/laravel-auth`), never in `vendor`.
+
 ```
 - [ ] Keep it pointed at Fortify's controller when Fortify has one
-- [ ] Give it an explicit schema in Igne\Auth\OpenApi\Schemas\AuthenticationOperations, keyed by route name
-- [ ] Regenerate the app's api.json (composer openapi) so its stale-check test passes
+- [ ] Give it an explicit schema in src/OpenApi/Schemas (AuthenticationOperations, keyed by route name); code that calls Scramble stays in src/OpenApi/Scramble
+- [ ] End every HTTP test of the route with ->assertMatchesOpenApi('<route name>'); when it fails, fix the schema or the response, not the assertion
+- [ ] Refresh the spec snapshot of tests/OpenApi/SpecTest.php with composer openapi and review its diff
+- [ ] Run composer lint, composer analyse (Larastan, level max on src) and composer test; CI also runs the suite without Scramble, and the Nova checks when the repository has the COMPOSER_AUTH secret
+```
+
+### Update the package in an app
+
+```
+- [ ] composer update igne-agency/laravel-auth; while the package is 0.x, a new minor version can break, so read its release notes before raising the constraint
+- [ ] Export the app's committed OpenAPI document again (php artisan scramble:export, or the app's composer script for it), so its stale-check test passes
+- [ ] Let php artisan boost:update run (IGNE apps run it in Composer's post-update-cmd), so this guideline and skill follow the package
 ```
 
 ## Client flows
@@ -103,6 +116,7 @@ The middleware stack decides the mode (`Igne\Auth\Http\Channel`), never a header
 - The audit actor is the request's authenticated user, else the event's user for their own actions, else null (system actions).
 - After a challenge, `login.succeeded` shows only `["totp"]` (or `["recovery_code"]`); the first factor is on the earlier `two_factor.challenged` entry.
 - Bulk query updates and deletes bypass the audit log's immutability guard. `request_id` is only set for HTTP requests.
+- The package supports Scramble 0.13.48 and later 0.13 releases only (`conflict`: `<0.13.48 || >=0.14`), because Scramble's extension API changes between 0.x releases. Composer refuses a Scramble upgrade past 0.13 until a package release widens the range.
 
 ## Key Endpoints
 

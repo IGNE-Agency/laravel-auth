@@ -61,8 +61,9 @@ A request passes these layers in order. Put each check in its own layer.
 - Send everything users receive through the notifications configured in `config/authentication.php` (`login_codes.notification`, `two_factor.reset_notification`, `passwords.reset_notification`), so each project can override them. User-facing strings live in the `authentication::messages` translations.
 - Record security-relevant actions through the package events (`Igne\Auth\Events\*`) and Laravel's and Fortify's auth events, which the audit log subscribes to. Never write, update or delete `audit_logs` rows directly.
 - Keep the package headless: no views, Blade templates or screens. Frontends and admin panels such as Nova are adapters.
-- Change behaviour through the config (`tokens.issuer`, `login_codes.actions`, `audit.actions.record_audit_log`, `auth_resource`, the models), not by editing the package.
+- Change behaviour through the config (`tokens.issuer`, `login_codes.actions`, `audit.actions.record_audit_log`, `auth_resource`, the models), not by editing the package in `vendor`. Changes to the package itself go to its own repository, `IGNE-Agency/laravel-auth`.
 - Package errors answer `{message, code}` with a code from `Igne\Auth\Http\ErrorCode`. Fortify's errors stay Laravel's own (401, 422, 423, 429).
+- With Scramble installed, the package documents its routes in the app's OpenAPI document. Export the app's committed document again after updating the package, so its stale check passes. The package supports Scramble 0.13.48 and later 0.13 releases (a Composer `conflict` blocks the rest), so a Scramble upgrade past 0.13 waits for a package release.
 
 ## Operational notes
 
