@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Igne\Auth\OpenApi;
+namespace Igne\Auth\OpenApi\Scramble;
 
 use Dedoc\Scramble\Contracts\OperationTransformer;
 use Dedoc\Scramble\Support\Generator\OpenApi;

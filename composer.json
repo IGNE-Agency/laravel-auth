@@ -35,11 +35,15 @@
         "laravel/sanctum": "^4.4"
     },
     "require-dev": {
+        "dedoc/scramble": "^0.13.48",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^5.3",
         "pestphp/pest-plugin-laravel": "^5.0"
+    },
+    "conflict": {
+        "dedoc/scramble": "<0.13.48 || >=0.14"
     },
     "suggest": {
         "dedoc/scramble": "Generates the OpenAPI 3.1 spec for the authentication routes.",

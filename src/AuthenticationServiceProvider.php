@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Igne\Auth;
 
-use Dedoc\Scramble\Configuration\GeneratorConfigCollection;
 use Dedoc\Scramble\Scramble;
 use Igne\Auth\Authentication\Actions\ResetPassword;
 use Igne\Auth\Authentication\Actions\UpdatePassword;
@@ -14,10 +13,7 @@ use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\Http\Responses\LoginResponse;
 use Igne\Auth\Http\Responses\LogoutResponse;
-use Igne\Auth\OpenApi\AuthenticationExceptionToResponseExtension;
-use Igne\Auth\OpenApi\AuthenticationOperationTransformer;
-use Igne\Auth\OpenApi\RemoveReplacedSchemasDocumentTransformer;
-use Igne\Auth\OpenApi\SecuritySchemesDocumentTransformer;
+use Igne\Auth\OpenApi\Scramble\ScrambleIntegration;
 use Igne\Auth\Sessions\HeaderSessionFactory;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
@@ -198,13 +194,7 @@ final class AuthenticationServiceProvider extends ServiceProvider
             return;
         }
 
-        Scramble::registerExtension(AuthenticationExceptionToResponseExtension::class);
-
-        $this->callAfterResolving(GeneratorConfigCollection::class, static function (GeneratorConfigCollection $apis): void {
-            $apis->get(Scramble::DEFAULT_API)
-                ->withOperationTransformers(AuthenticationOperationTransformer::class)
-                ->withDocumentTransformers([SecuritySchemesDocumentTransformer::class, RemoveReplacedSchemasDocumentTransformer::class]);
-        });
+        $this->app->make(ScrambleIntegration::class)->boot();
     }
 
     private static function path(string $path): string
