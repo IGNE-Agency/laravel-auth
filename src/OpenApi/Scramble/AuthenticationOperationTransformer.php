@@ -14,6 +14,7 @@ use Dedoc\Scramble\Support\Generator\Response;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityRequirement;
 use Dedoc\Scramble\Support\RouteInfo;
+use Igne\Auth\Http\Channel;
 use Igne\Auth\Http\ErrorCode;
 use Igne\Auth\OpenApi\Schemas\AuthenticationOperations;
 use Igne\Auth\OpenApi\Schemas\OperationSchema;
@@ -34,6 +35,12 @@ final class AuthenticationOperationTransformer implements OperationTransformer
      * documentation referenced before the explicit schemas replaced it.
      */
     public const string REPLACED_SCHEMAS_ATTRIBUTE = 'authentication.replaced_schemas';
+
+    /**
+     * The operation attribute that holds its description for one
+     * authentication mode, by mode.
+     */
+    public const string MODE_DESCRIPTIONS_ATTRIBUTE = 'authentication.mode_descriptions';
 
     public function __construct(
         private readonly OpenApi $openApi,
@@ -62,7 +69,14 @@ final class AuthenticationOperationTransformer implements OperationTransformer
         $operation->setAttribute(self::REPLACED_SCHEMAS_ATTRIBUTE, $this->referencedSchemaNames($operation));
 
         $operation->summary($definition->summary);
-        $operation->description($definition->description);
+        $operation->description(self::describe($definition->description, [
+            'Session mode' => $definition->sessionDescription,
+            'Token mode' => $definition->tokenDescription,
+        ]));
+        $operation->setAttribute(self::MODE_DESCRIPTIONS_ATTRIBUTE, [
+            Channel::Session->value => self::describe($definition->description, [$definition->sessionDescription]),
+            Channel::Token->value => self::describe($definition->description, [$definition->tokenDescription]),
+        ]);
         $operation->setTags(['Authentication']);
         $definedPathParameters = array_map(
             fn (Parameter $parameter): string => $parameter->name,
@@ -82,6 +96,23 @@ final class AuthenticationOperationTransformer implements OperationTransformer
             ...$definition->responses,
             ...$this->errorResponses($definition, $routeInfo->route, $middleware->all(), $schemas),
         ];
+    }
+
+    /**
+     * Join the description that holds in both modes with the mode-specific
+     * ones, each as a paragraph, labelled by its key when it is a string.
+     *
+     * @param  array<int|string, string>  $modeDescriptions
+     */
+    private static function describe(string $description, array $modeDescriptions): string
+    {
+        $paragraphs = [$description];
+
+        foreach ($modeDescriptions as $label => $modeDescription) {
+            $paragraphs[] = $modeDescription === '' || is_int($label) ? $modeDescription : "**{$label}:** {$modeDescription}";
+        }
+
+        return implode("\n\n", array_filter($paragraphs, fn (string $paragraph): bool => $paragraph !== ''));
     }
 
     /**
