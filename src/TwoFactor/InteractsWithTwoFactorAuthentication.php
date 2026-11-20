@@ -6,6 +6,7 @@ namespace Igne\Auth\TwoFactor;
 
 use Igne\Auth\TwoFactor\Models\TrustedDevice;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Laravel\Fortify\Features;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use LogicException;
 
@@ -26,6 +27,19 @@ trait InteractsWithTwoFactorAuthentication
     public function requiresTwoFactorAuthentication(): bool
     {
         return config()->boolean('authentication.two_factor.required', true);
+    }
+
+    /**
+     * Determine whether the user still has to set up two-factor
+     * authentication: Fortify's two-factor feature is on,
+     * requiresTwoFactorAuthentication() requires it and the user hasn't
+     * enabled it yet.
+     */
+    public function mustSetUpTwoFactorAuthentication(): bool
+    {
+        return Features::enabled(Features::twoFactorAuthentication())
+            && $this->requiresTwoFactorAuthentication()
+            && ! $this->hasEnabledTwoFactorAuthentication();
     }
 
     /**
