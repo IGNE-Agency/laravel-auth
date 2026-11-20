@@ -58,7 +58,7 @@
         "/auth/login": {
             "post": {
                 "operationId": "authentication.login",
-                "description": "Session mode (an SPA whose requests run through Sanctum's stateful stack) logs in to the cookie session. Token mode answers with an access token instead; \"remember\" is ignored and \"device_name\" names the token (the user agent otherwise). \"password\" is the user's password, or a login code from POST /auth/login-code for users that log in with codes. Users with two-factor authentication get \"two_factor\": true and pass the challenge next, unless the device is remembered: its device token comes along as the two_factor_device cookie (session mode) or the X-Two-Factor-Device header (token mode).",
+                "description": "\"password\" is the user's password, or a login code from POST /auth/login-code for users that log in with codes. Users with two-factor authentication get \"two_factor\": true and pass the challenge next, unless the device is remembered.\n\n**Session mode:** For an SPA whose requests run through Sanctum's stateful stack: logs in to the cookie session. A remembered device comes along as the two_factor_device cookie.\n\n**Token mode:** Answers with an access token. A remembered device sends its device token in the X-Two-Factor-Device header.",
                 "summary": "Log in with email and password or login code",
                 "tags": [
                     "Authentication"
@@ -67,10 +67,11 @@
                     {
                         "name": "X-Two-Factor-Device",
                         "in": "header",
-                        "description": "Token mode: the device token of a remembered device, which skips the two-factor challenge.",
+                        "description": "The device token of a remembered device, which skips the two-factor challenge.",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "x-auth-mode": "token"
                     }
                 ],
                 "requestBody": {
@@ -88,10 +89,13 @@
                                         "type": "string"
                                     },
                                     "remember": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "x-auth-mode": "session"
                                     },
                                     "device_name": {
                                         "type": "string",
+                                        "description": "The name of the access token; the user agent otherwise.",
+                                        "x-auth-mode": "token",
                                         "maxLength": 255
                                     }
                                 },
@@ -117,11 +121,13 @@
                                         },
                                         "challenge": {
                                             "type": "string",
-                                            "description": "Token mode, with \"two_factor\": true: the challenge id for the X-Auth-Challenge header."
+                                            "description": "With \"two_factor\": true: the challenge id for the X-Auth-Challenge header.",
+                                            "x-auth-mode": "token"
                                         },
                                         "token": {
                                             "type": "string",
-                                            "description": "Token mode, with \"two_factor\": false: the access token for the Authorization: Bearer header."
+                                            "description": "With \"two_factor\": false: the access token for the Authorization: Bearer header.",
+                                            "x-auth-mode": "token"
                                         },
                                         "expires_at": {
                                             "type": [
@@ -129,7 +135,8 @@
                                                 "null"
                                             ],
                                             "format": "date-time",
-                                            "description": "Token mode only: when the access token expires, or null when it does not."
+                                            "description": "When the access token expires, or null when it does not.",
+                                            "x-auth-mode": "token"
                                         }
                                     },
                                     "required": [
@@ -203,7 +210,7 @@
         "/auth/logout": {
             "post": {
                 "operationId": "authentication.logout",
-                "description": "Session mode ends the session. Token mode revokes the access token the request was sent with.",
+                "description": "**Session mode:** Ends the session.\n\n**Token mode:** Revokes the access token the request was sent with.",
                 "summary": "Log out",
                 "tags": [
                     "Authentication"
@@ -293,7 +300,7 @@
         "/auth/two-factor-challenge": {
             "post": {
                 "operationId": "authentication.two-factor.challenge",
-                "description": "Send a code from the authenticator app (\"code\") or a recovery code (\"recovery_code\"). After a login that answered \"two_factor\": true, session mode sends the session cookie and token mode the challenge id in the X-Auth-Challenge header; a challenge works once. A logged-in user whose device is not trusted (403 \"two_factor_required\") steps up with their session or access token instead. \"remember_device\" trusts the device for longer than the session or access token; a recovery code never does.",
+                "description": "Send a code from the authenticator app (\"code\") or a recovery code (\"recovery_code\"). A challenge works once. A recovery code never trusts the device for longer (\"remember_device\").\n\n**Session mode:** After a login that answered \"two_factor\": true, send the session cookie. A logged-in user whose browser is not trusted (403 \"two_factor_required\") steps up with their session. \"remember_device\" trusts the browser for longer than the session, with the two_factor_device cookie.\n\n**Token mode:** After a login that answered \"two_factor\": true, send the \"challenge\" in the X-Auth-Challenge header. A logged-in user whose access token is not trusted (403 \"two_factor_required\") steps up with that token. \"remember_device\" trusts the device for longer than the access token, with the \"device_token\" of the answer.",
                 "summary": "Pass the two-factor challenge",
                 "tags": [
                     "Authentication"
@@ -302,10 +309,11 @@
                     {
                         "name": "X-Auth-Challenge",
                         "in": "header",
-                        "description": "Token mode, after a login: the \"challenge\" from the login answer.",
+                        "description": "After a login: the \"challenge\" from the login answer.",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "x-auth-mode": "token"
                     }
                 ],
                 "requestBody": {
@@ -335,7 +343,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Token mode: the challenge was passed",
+                        "description": "The challenge was passed",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -366,10 +374,12 @@
                                     ]
                                 }
                             }
-                        }
+                        },
+                        "x-auth-mode": "token"
                     },
                     "204": {
-                        "description": "Session mode: the challenge was passed"
+                        "description": "The challenge was passed",
+                        "x-auth-mode": "session"
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationError"
@@ -416,7 +426,7 @@
         "/user/confirm-password": {
             "post": {
                 "operationId": "authentication.password.confirm.store",
-                "description": "Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token. \"password\" is what the user's \"confirmation_method\" says: their password, a code from their authenticator app, or an emailed code from POST /user/confirm-password/code.",
+                "description": "Starts the password confirmation window that routes requiring a recent confirmation (423) check. \"password\" is what the user's \"confirmation_method\" says: their password, a code from their authenticator app, or an emailed code from POST /user/confirm-password/code.\n\n**Session mode:** The window is kept in the session.\n\n**Token mode:** The window is kept per access token.",
                 "summary": "Confirm the password",
                 "tags": [
                     "Authentication"
@@ -585,7 +595,7 @@
         "/user/confirmed-two-factor-authentication": {
             "post": {
                 "operationId": "authentication.two-factor.confirm",
-                "description": "Finishes the setup with a code from the authenticator app. The session or access token the request is sent with is trusted from then on.",
+                "description": "Finishes the setup with a code from the authenticator app.\n\n**Session mode:** The session the request is sent with is trusted from then on.\n\n**Token mode:** The access token the request is sent with is trusted from then on.",
                 "summary": "Confirm two-factor authentication",
                 "tags": [
                     "Authentication"
@@ -1514,17 +1524,20 @@
             "bearer": {
                 "type": "http",
                 "description": "An access token from POST /auth/login in token mode.",
+                "x-auth-mode": "token",
                 "scheme": "bearer"
             },
             "session": {
                 "type": "apiKey",
                 "description": "The session cookie of an SPA that logged in in session mode.",
+                "x-auth-mode": "session",
                 "in": "cookie",
                 "name": "laravel_session"
             },
             "xsrf": {
                 "type": "apiKey",
                 "description": "The value of the XSRF-TOKEN cookie, required with the session cookie.",
+                "x-auth-mode": "session",
                 "in": "header",
                 "name": "X-XSRF-TOKEN"
             }

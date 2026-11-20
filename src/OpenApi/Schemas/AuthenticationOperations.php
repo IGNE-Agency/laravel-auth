@@ -13,6 +13,7 @@ use Dedoc\Scramble\Support\Generator\Types\IntegerType;
 use Dedoc\Scramble\Support\Generator\Types\ObjectType;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Dedoc\Scramble\Support\Generator\Types\Type;
+use Igne\Auth\Http\Channel;
 use Igne\Auth\Http\ErrorCode;
 use Laravel\Fortify\Fortify;
 
@@ -31,8 +32,9 @@ final class AuthenticationOperations
             'authentication.login' => $this->login(),
             'authentication.logout' => new OperationSchema(
                 summary: 'Log out',
-                description: 'Session mode ends the session. Token mode revokes the access token the request was sent with.',
                 responses: [$this->schemas->empty(204, 'Logged out')],
+                sessionDescription: 'Ends the session.',
+                tokenDescription: 'Revokes the access token the request was sent with.',
             ),
             'authentication.login-code' => new OperationSchema(
                 summary: 'Request a login code',
@@ -83,10 +85,12 @@ final class AuthenticationOperations
             ),
             'authentication.password.confirm.store' => new OperationSchema(
                 summary: 'Confirm the password',
-                description: 'Starts the password confirmation window that routes requiring a recent confirmation (423) check. Token mode keeps it per access token. "password" is what the user\'s "confirmation_method" says: their password, a code from their authenticator app, or an emailed code from POST /user/confirm-password/code.',
+                description: 'Starts the password confirmation window that routes requiring a recent confirmation (423) check. "password" is what the user\'s "confirmation_method" says: their password, a code from their authenticator app, or an emailed code from POST /user/confirm-password/code.',
                 requestBody: $this->object(['password' => new StringType]),
                 responses: [$this->schemas->empty(201, 'The password was confirmed')],
                 validatesInput: true,
+                sessionDescription: 'The window is kept in the session.',
+                tokenDescription: 'The window is kept per access token.',
             ),
             'authentication.password.confirmation' => new OperationSchema(
                 summary: 'Get the password confirmation status',
@@ -118,10 +122,12 @@ final class AuthenticationOperations
             ),
             'authentication.two-factor.confirm' => new OperationSchema(
                 summary: 'Confirm two-factor authentication',
-                description: 'Finishes the setup with a code from the authenticator app. The session or access token the request is sent with is trusted from then on.',
+                description: 'Finishes the setup with a code from the authenticator app.',
                 requestBody: $this->object(['code' => new StringType]),
                 responses: [$this->schemas->empty(200, 'Two-factor authentication is set up')],
                 validatesInput: true,
+                sessionDescription: 'The session the request is sent with is trusted from then on.',
+                tokenDescription: 'The access token the request is sent with is trusted from then on.',
             ),
             'authentication.two-factor.disable' => new OperationSchema(
                 summary: 'Disable two-factor authentication',
@@ -228,7 +234,7 @@ final class AuthenticationOperations
 
         return new OperationSchema(
             summary: 'Pass the two-factor challenge',
-            description: 'Send a code from the authenticator app ("code") or a recovery code ("recovery_code"). After a login that answered "two_factor": true, session mode sends the session cookie and token mode the challenge id in the '.$this->challengeHeader().' header; a challenge works once. A logged-in user whose device is not trusted (403 "two_factor_required") steps up with their session or access token instead. "remember_device" trusts the device for longer than the session or access token; a recovery code never does.',
+            description: 'Send a code from the authenticator app ("code") or a recovery code ("recovery_code"). A challenge works once. A recovery code never trusts the device for longer ("remember_device").',
             requestBody: $this->object([
                 'code' => new StringType,
                 'recovery_code' => new StringType,
@@ -236,17 +242,25 @@ final class AuthenticationOperations
                 'device_name' => (new StringType)->setMax(255),
             ], required: []),
             responses: [
-                Response::make(200)
-                    ->setDescription('Token mode: the challenge was passed')
-                    ->setContent('application/json', Schema::fromType($tokenModeBody)),
-                $this->schemas->empty(204, 'Session mode: the challenge was passed'),
+                AuthenticationMode::mark(
+                    Response::make(200)
+                        ->setDescription('The challenge was passed')
+                        ->setContent('application/json', Schema::fromType($tokenModeBody)),
+                    Channel::Token,
+                ),
+                AuthenticationMode::mark($this->schemas->empty(204, 'The challenge was passed'), Channel::Session),
             ],
             parameters: [
-                Parameter::make($this->challengeHeader(), 'header')
-                    ->description('Token mode, after a login: the "challenge" from the login answer.')
-                    ->setSchema(Schema::fromType(new StringType)),
+                AuthenticationMode::mark(
+                    Parameter::make($this->challengeHeader(), 'header')
+                        ->description('After a login: the "challenge" from the login answer.')
+                        ->setSchema(Schema::fromType(new StringType)),
+                    Channel::Token,
+                ),
             ],
             validatesInput: true,
+            sessionDescription: 'After a login that answered "two_factor": true, send the session cookie. A logged-in user whose browser is not trusted (403 "two_factor_required") steps up with their session. "remember_device" trusts the browser for longer than the session, with the '.$this->deviceCookie().' cookie.',
+            tokenDescription: 'After a login that answered "two_factor": true, send the "challenge" in the '.$this->challengeHeader().' header. A logged-in user whose access token is not trusted (403 "two_factor_required") steps up with that token. "remember_device" trusts the device for longer than the access token, with the "device_token" of the answer.',
         );
     }
 
@@ -269,19 +283,19 @@ final class AuthenticationOperations
     {
         $body = (new ObjectType)
             ->addProperty('two_factor', (new BooleanType)->setDescription('Whether a two-factor challenge must follow (POST /auth/two-factor-challenge).'))
-            ->addProperty('challenge', (new StringType)->setDescription('Token mode, with "two_factor": true: the challenge id for the '.$this->challengeHeader().' header.'))
-            ->addProperty('token', (new StringType)->setDescription('Token mode, with "two_factor": false: the access token for the Authorization: Bearer header.'))
-            ->addProperty('expires_at', (new StringType)->format('date-time')->nullable(true)->setDescription('Token mode only: when the access token expires, or null when it does not.'))
+            ->addProperty('challenge', AuthenticationMode::mark((new StringType)->setDescription('With "two_factor": true: the challenge id for the '.$this->challengeHeader().' header.'), Channel::Token))
+            ->addProperty('token', AuthenticationMode::mark((new StringType)->setDescription('With "two_factor": false: the access token for the Authorization: Bearer header.'), Channel::Token))
+            ->addProperty('expires_at', AuthenticationMode::mark((new StringType)->format('date-time')->nullable(true)->setDescription('When the access token expires, or null when it does not.'), Channel::Token))
             ->setRequired(['two_factor']);
 
         return new OperationSchema(
             summary: 'Log in with email and password or login code',
-            description: 'Session mode (an SPA whose requests run through Sanctum\'s stateful stack) logs in to the cookie session. Token mode answers with an access token instead; "remember" is ignored and "device_name" names the token (the user agent otherwise). "password" is the user\'s password, or a login code from POST /auth/login-code for users that log in with codes. Users with two-factor authentication get "two_factor": true and pass the challenge next, unless the device is remembered: its device token comes along as the '.$this->deviceCookie().' cookie (session mode) or the '.$this->deviceHeader().' header (token mode).',
+            description: '"password" is the user\'s password, or a login code from POST /auth/login-code for users that log in with codes. Users with two-factor authentication get "two_factor": true and pass the challenge next, unless the device is remembered.',
             requestBody: $this->object([
                 Fortify::username() => $this->email(),
                 'password' => new StringType,
-                'remember' => new BooleanType,
-                'device_name' => (new StringType)->setMax(255),
+                'remember' => AuthenticationMode::mark(new BooleanType, Channel::Session),
+                'device_name' => AuthenticationMode::mark((new StringType)->setMax(255)->setDescription('The name of the access token; the user agent otherwise.'), Channel::Token),
             ], required: [Fortify::username(), 'password']),
             responses: [
                 Response::make(200)
@@ -289,12 +303,17 @@ final class AuthenticationOperations
                     ->setContent('application/json', Schema::fromType($body)),
             ],
             parameters: [
-                Parameter::make($this->deviceHeader(), 'header')
-                    ->description('Token mode: the device token of a remembered device, which skips the two-factor challenge.')
-                    ->setSchema(Schema::fromType(new StringType)),
+                AuthenticationMode::mark(
+                    Parameter::make($this->deviceHeader(), 'header')
+                        ->description('The device token of a remembered device, which skips the two-factor challenge.')
+                        ->setSchema(Schema::fromType(new StringType)),
+                    Channel::Token,
+                ),
             ],
             validatesInput: true,
             throttled: true,
+            sessionDescription: 'For an SPA whose requests run through Sanctum\'s stateful stack: logs in to the cookie session. A remembered device comes along as the '.$this->deviceCookie().' cookie.',
+            tokenDescription: 'Answers with an access token. A remembered device sends its device token in the '.$this->deviceHeader().' header.',
         );
     }
 

@@ -16,6 +16,9 @@ use Igne\Auth\Http\ErrorCode;
 final readonly class OperationSchema
 {
     /**
+     * @param  string  $description  what holds in both authentication modes
+     * @param  string  $sessionDescription  what only holds in session mode
+     * @param  string  $tokenDescription  what only holds in token mode
      * @param  list<Response|Reference>  $responses  the route's own responses; the transformer adds the 401, 403, 422, 423 and 429 that follow from its middleware and request body
      * @param  list<Parameter>  $parameters
      * @param  bool|null  $throttled  whether the route can answer 429; null decides by its "throttle" middleware
@@ -30,5 +33,7 @@ final readonly class OperationSchema
         public bool $validatesInput = false,
         public ?bool $throttled = null,
         public array $errorCodes = [],
+        public string $sessionDescription = '',
+        public string $tokenDescription = '',
     ) {}
 }
