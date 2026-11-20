@@ -23,6 +23,13 @@ interface TwoFactorAuthenticatable extends Authenticatable
     public function requiresTwoFactorAuthentication(): bool;
 
     /**
+     * Determine whether the user still has to set up two-factor
+     * authentication: Fortify's two-factor feature is on, the user requires
+     * it and hasn't enabled it yet.
+     */
+    public function mustSetUpTwoFactorAuthentication(): bool;
+
+    /**
      * Determine whether the user has two-factor authentication enabled (and
      * confirmed, when Fortify confirms it). Fortify's TwoFactorAuthenticatable
      * trait implements it.
