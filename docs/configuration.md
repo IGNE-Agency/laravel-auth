@@ -34,4 +34,4 @@ A cookie session lasts Laravel's own `session.lifetime` (`SESSION_LIFETIME`).
 
 The provider validates `two_factor.device_trust` at boot and throws `InvalidConfigurationException` for a lifetime that isn't `'session'` or 1 to 365 days. Fortify's own options stay in `config/fortify.php`.
 
-Everything the package sends to users is a notification named in the config (`login_codes.notification`, `two_factor.reset_notification`, `passwords.reset_notification`). Swap one for a notification of your own with the same constructor. The strings are in the `authentication::messages` translations (publish tag `authentication-lang`).
+Everything the package sends to users is a notification named in the config (`login_codes.notification`, `two_factor.reset_notification`, `passwords.reset_notification`). Swap one for a notification of your own with the same constructor. The strings are in the `authentication::messages` translations (publish tag `authentication-lang`). See [Mails](mails.md).
