@@ -64,6 +64,9 @@ Setting up the package in an app:
 - [Login codes](docs/login-codes.md): logging in and confirming identity with an emailed one-time code.
 - [Two-factor authentication](docs/two-factor-authentication.md): the per-device challenge, its enforcement on the app's routes, and resetting a user's two-factor authentication.
 - [Devices and sessions](docs/devices-and-sessions.md): the endpoints users list and revoke their devices, sessions and access tokens with.
+- [Screens](docs/screens.md): the login, two-factor, password and security screens the frontend builds, how they connect and what each must show.
+- [Mails](docs/mails.md): the mails the package sends, changing their text and links, replacing them, and adding mails of your own.
+- [Events](docs/events.md): the events the package, Laravel and Fortify fire, and hooking into them with listeners.
 - [Audit log](docs/audit-log.md): the security events the package records, how to read them, and sending them elsewhere.
 - [Routes](docs/routes.md): every package route, and keeping the app's own routes behind the two-factor enforcement.
 - [Nova](docs/nova.md): letting Nova's login, challenge and security screens handle authentication.
