@@ -13,4 +13,4 @@ parameters:
         - tests/database/migrations
         - vendor/laravel/sanctum/database/migrations
     stubFiles:
-        - phpstan/scramble.stub
+        - phpstan/fortify.stub
