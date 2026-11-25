@@ -33,6 +33,15 @@ final class LoginCodeController
         private readonly Timebox $timebox,
     ) {}
 
+    /**
+     * Request a login code.
+     *
+     * Emails a one-time login code when the account can log in with one. The answer is always the same: for an
+     * unknown account, for one that cannot use codes and when rate-limited too, so it never reveals whether an
+     * account exists. Log in by sending the code as "password" to POST /auth/login.
+     *
+     * @response \Illuminate\Http\JsonResponse<array{message: string}, 202>
+     */
     public function store(RequestLoginCodeRequest $request): JsonResponse
     {
         $this->timebox->call(function () use ($request): void {

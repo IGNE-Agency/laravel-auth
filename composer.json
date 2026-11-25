@@ -36,6 +36,8 @@
     },
     "require-dev": {
         "dedoc/scramble": "^0.13.48",
+        "igne-agency/laravel-problem-details": "*",
+        "igne-agency/laravel-scramble-extensions": "*",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
         "opis/json-schema": "^2.6",
@@ -43,11 +45,7 @@
         "pestphp/pest": "^5.3",
         "pestphp/pest-plugin-laravel": "^5.0"
     },
-    "conflict": {
-        "dedoc/scramble": "<0.13.48 || >=0.14"
-    },
     "suggest": {
-        "dedoc/scramble": "Generates the OpenAPI 3.1 spec for the authentication routes.",
         "laravel/nova": "Adds the Nova adapter for the authentication flows."
     },
     "autoload": {
@@ -70,8 +68,7 @@
     "scripts": {
         "lint": "pint",
         "analyse": "phpstan analyse --memory-limit=1G",
-        "test": "pest",
-        "openapi": "pest tests/OpenApi --update-snapshots"
+        "test": "pest"
     },
     "config": {
         "preferred-install": "dist",
@@ -80,6 +77,22 @@
             "pestphp/pest-plugin": true
         }
     },
-    "minimum-stability": "stable",
-    "prefer-stable": true
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../laravel-problem-details",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../laravel-scramble-extensions",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
 }
