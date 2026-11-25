@@ -45,12 +45,20 @@ it('keeps the name and the status of every error: both are public API', function
     ]);
 });
 
-it('points every route at a controller of the package', function (): void {
+it('points every route at a controller of the package or of Fortify', function (): void {
     $foreign = collect(Route::getRoutes()->getRoutes())
         ->filter(fn ($route): bool => str_starts_with((string) $route->getName(), 'authentication.'))
-        ->reject(fn ($route): bool => str_starts_with(ltrim((string) $route->getControllerClass(), '\\'), 'Igne\\Auth\\'))
+        ->reject(fn ($route): bool => str_starts_with(ltrim((string) $route->getControllerClass(), '\\'), 'Igne\\Auth\\') || str_starts_with(ltrim((string) $route->getControllerClass(), '\\'), 'Laravel\\Fortify\\'))
         ->map(fn ($route): string => (string) $route->getName())
         ->values();
 
     expect($foreign->all())->toBe([]);
+});
+
+it('owns the routes whose request or answer it changes', function (): void {
+    // Token mode, device trust and login codes change what these accept and answer; every other Fortify route
+    // answers as Fortify does, so it points at Fortify.
+    foreach (['authentication.login', 'authentication.logout', 'authentication.two-factor.challenge'] as $name) {
+        expect(ltrim((string) Route::getRoutes()->getByName($name)?->getControllerClass(), '\\'))->toStartWith('Igne\\Auth\\');
+    }
 });
