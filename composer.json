@@ -36,8 +36,8 @@
     },
     "require-dev": {
         "dedoc/scramble": "^0.13.48",
-        "igne-agency/laravel-problem-details": "*",
-        "igne-agency/laravel-scramble-extensions": "*",
+        "igne-agency/laravel-error-contract": "*",
+        "igne-agency/laravel-api-docs": "*",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
         "opis/json-schema": "^2.6",

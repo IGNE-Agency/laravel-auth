@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Dedoc\Scramble\Generator;
 use Dedoc\Scramble\Scramble;
 use Igne\Auth\Tests\Fixtures\User;
-use Igne\ProblemDetails\ProblemDetailsServiceProvider;
-use Igne\ScrambleExtensions\ScrambleExtensionsServiceProvider;
+use Igne\ErrorContract\ErrorContractServiceProvider;
+use Igne\ApiDocs\ApiDocsServiceProvider;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Route;
 
@@ -36,7 +36,7 @@ it('answers as Laravel does when the package is alone', function (): void {
 });
 
 it('answers in the shape of an error package, named after its class, without knowing that package', function (): void {
-    $this->app->register(ProblemDetailsServiceProvider::class);
+    $this->app->register(ErrorContractServiceProvider::class);
 
     ($this->refused)()
         ->assertForbidden()
@@ -46,7 +46,7 @@ it('answers in the shape of an error package, named after its class, without kno
 });
 
 it('is documented as Laravel answers when only a documentation package is added', function (): void {
-    $this->app->register(ScrambleExtensionsServiceProvider::class);
+    $this->app->register(ApiDocsServiceProvider::class);
 
     [$response, $schemas] = ($this->documented)();
 
@@ -55,8 +55,8 @@ it('is documented as Laravel answers when only a documentation package is added'
 });
 
 it('is documented in the shape of the error package when both are added', function (): void {
-    $this->app->register(ProblemDetailsServiceProvider::class);
-    $this->app->register(ScrambleExtensionsServiceProvider::class);
+    $this->app->register(ErrorContractServiceProvider::class);
+    $this->app->register(ApiDocsServiceProvider::class);
 
     [$response, $schemas] = ($this->documented)();
 

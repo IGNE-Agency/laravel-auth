@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 arch('the package uses no error package and no documentation tool')
     ->expect('Igne\Auth')
-    ->not->toUse(['Dedoc\Scramble', 'Igne\ProblemDetails', 'Igne\ScrambleExtensions']);
+    ->not->toUse(['Dedoc\Scramble', 'Igne\ErrorContract', 'Igne\ApiDocs']);
 
 arch('every error is a Symfony HTTP exception that does not render itself')
     ->expect(['Igne\Auth\Http\Exceptions', MissingTwoFactorAuthenticationException::class, TwoFactorRequiredException::class, TwoFactorSetupRequiredException::class])
