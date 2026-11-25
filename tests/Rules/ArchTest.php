@@ -56,9 +56,9 @@ it('points every route at a controller of the package or of Fortify', function (
 });
 
 it('owns the routes whose request or answer it changes', function (): void {
-    // Token mode, device trust and login codes change what these accept and answer; every other Fortify route
-    // answers as Fortify does, so it points at Fortify.
-    foreach (['authentication.login', 'authentication.logout', 'authentication.two-factor.challenge'] as $name) {
+    // Token mode, device trust and login codes add inputs and answers to these two that Fortify's own request and
+    // controller do not declare. Every other Fortify route, logout included, points at Fortify.
+    foreach (['authentication.login', 'authentication.two-factor.challenge'] as $name) {
         expect(ltrim((string) Route::getRoutes()->getByName($name)?->getControllerClass(), '\\'))->toStartWith('Igne\\Auth\\');
     }
 });

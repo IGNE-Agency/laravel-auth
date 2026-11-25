@@ -17,6 +17,7 @@ use Igne\Auth\TwoFactor\Http\Controllers\TwoFactorChallengeController;
 use Igne\Auth\TwoFactor\Http\Middleware\PrepareTwoFactorStepUp;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
+use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
 use Laravel\Fortify\Http\Controllers\ConfirmedPasswordStatusController;
 use Laravel\Fortify\Http\Controllers\ConfirmedTwoFactorAuthenticationController;
@@ -34,7 +35,7 @@ use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
 | The provider loads this file with the configured prefix and middleware,
 | plus AcceptJson. A route points at Fortify's own controller where the
 | package changes nothing about its request and its answer. Where the package
-| adds to them (login, the two-factor challenge, logout), the route has a
+| adds to them (login and the two-factor challenge), the route has a
 | controller of the package, which hands the request over to Fortify's.
 |
 */
@@ -43,7 +44,7 @@ Route::post('auth/login', [SessionController::class, 'store'])
     ->middleware(StartHeaderSession::class)
     ->name('authentication.login');
 
-Route::post('auth/logout', [SessionController::class, 'destroy'])
+Route::post('auth/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.logout');
 

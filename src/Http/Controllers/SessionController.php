@@ -6,14 +6,13 @@ namespace Igne\Auth\Http\Controllers;
 
 use Igne\Auth\Http\Requests\LoginRequest;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
-use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
 /**
- * Logging in and out. Fortify does the work; this controller is the boundary
- * of the package: its request, its answer and its errors are stated here, so
- * anything that reads the routes of an app reads them from this code.
+ * Logging in. Fortify does the work. The package adds inputs and answers of
+ * its own to the login (token mode, device trust, login codes), which this
+ * controller and its Form Request declare; Fortify's own know nothing of them.
  */
 final class SessionController
 {
@@ -34,17 +33,5 @@ final class SessionController
     public function store(LoginRequest $request): mixed
     {
         return $this->fortify->store($request);
-    }
-
-    /**
-     * Log out.
-     *
-     * Session mode ends the session; token mode revokes the access token the request was sent with.
-     *
-     * @response \Illuminate\Http\Response<'', 204>
-     */
-    public function destroy(Request $request): mixed
-    {
-        return $this->fortify->destroy($request);
     }
 }
