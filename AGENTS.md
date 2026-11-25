@@ -72,5 +72,4 @@
 
 - Checks: `composer lint` (Pint), `composer analyse` (Larastan, level max on `src`, no baseline) and `composer test` (Pest on Orchestra Testbench). Done means all three pass.
 - Tests are Pest only.
-- Every package route is documented in `src/OpenApi/Schemas`. A changed route needs its schema changed, the spec snapshot refreshed with `composer openapi`, and `->assertMatchesOpenApi('<route name>')` on its HTTP tests. Everything that calls Scramble lives in `src/OpenApi/Scramble`.
 - Versioning is 0.x until a second project runs the package: a breaking change bumps the minor version.

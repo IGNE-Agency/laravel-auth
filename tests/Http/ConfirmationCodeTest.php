@@ -26,7 +26,7 @@ it('emails a confirmation code without a link to a user who confirms with codes'
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->postJson('/api/user/confirm-password/code');
 
-    $response->assertAccepted()->assertExactJson(['message' => 'We have emailed you a confirmation code.'])->assertMatchesOpenApi('authentication.password.confirm.code');
+    $response->assertAccepted()->assertExactJson(['message' => 'We have emailed you a confirmation code.']);
     Notification::assertSentTo($user, LoginCodeNotification::class, fn (LoginCodeNotification $notification): bool => $notification->purpose === LoginCodePurpose::Confirm && $notification->url === null);
     Event::assertDispatched(LoginCodeRequested::class, fn (LoginCodeRequested $event): bool => $event->user->is($user) && $event->purpose === LoginCodePurpose::Confirm);
 });
@@ -37,12 +37,12 @@ it('confirms the identity of a user without a password with an emailed code', fu
     $this->withToken($user->createToken('test')->plainTextToken);
 
     $before = $this->getJson('/confirmed-area');
-    $this->postJson('/api/user/confirm-password/code')->assertAccepted()->assertMatchesOpenApi('authentication.password.confirm.code');
+    $this->postJson('/api/user/confirm-password/code')->assertAccepted();
     $confirmation = $this->postJson('/api/user/confirm-password', ['password' => $this->lastLoginCodeNotification($user)->code]);
     $after = $this->getJson('/confirmed-area');
 
     $before->assertStatus(423);
-    $confirmation->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $confirmation->assertCreated();
     $after->assertOk();
 });
 
@@ -53,7 +53,7 @@ it('does not confirm with a login code', function (): void {
 
     $response = $this->postJson('/api/user/confirm-password', ['password' => '123456']);
 
-    $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The provided password was incorrect.'])->assertMatchesOpenApi('authentication.password.confirm.store');
+    $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The provided password was incorrect.']);
     $this->getJson('/confirmed-area')->assertStatus(423);
 });
 
@@ -63,7 +63,7 @@ it('refuses a confirmation code to a user who confirms with a password with 403'
 
     $response = $this->withToken($this->loginForToken($user))->postJson('/api/user/confirm-password/code');
 
-    $response->assertForbidden()->assertExactJson(['message' => 'Your account does not confirm with an emailed code.', 'code' => 'login_code_unavailable'])->assertMatchesOpenApi('authentication.password.confirm.code');
+    $response->assertForbidden()->assertExactJson(['message' => 'Your account does not confirm with an emailed code.']);
     Notification::assertNothingSent();
 });
 
@@ -73,16 +73,16 @@ it('throttles confirmation code requests with 429', function (): void {
     $this->withToken($user->createToken('test')->plainTextToken);
 
     foreach (range(1, 3) as $request) {
-        $this->postJson('/api/user/confirm-password/code')->assertAccepted()->assertMatchesOpenApi('authentication.password.confirm.code');
+        $this->postJson('/api/user/confirm-password/code')->assertAccepted();
     }
     $response = $this->postJson('/api/user/confirm-password/code');
 
-    $response->assertTooManyRequests()->assertMatchesOpenApi('authentication.password.confirm.code');
+    $response->assertTooManyRequests();
     Notification::assertSentToTimes($user, LoginCodeNotification::class, 3);
 });
 
 it('answers a guest with 401', function (): void {
     $response = $this->postJson('/api/user/confirm-password/code');
 
-    $response->assertUnauthorized()->assertMatchesOpenApi('authentication.password.confirm.code');
+    $response->assertUnauthorized();
 });

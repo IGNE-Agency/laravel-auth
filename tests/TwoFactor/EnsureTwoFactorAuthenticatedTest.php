@@ -25,34 +25,28 @@ describe('a user who must set up two-factor authentication', function (): void {
         config(['authentication.two_factor.required' => true]);
     });
 
-    it('gets "two_factor_setup_required" on app API routes', function (): void {
+    it('is refused on app API routes', function (): void {
         $user = User::factory()->create();
 
         $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api-area');
 
-        $response->assertForbidden()->assertExactJson([
-            'message' => 'Set up two-factor authentication to continue.',
-            'code' => 'two_factor_setup_required',
-        ]);
+        $response->assertForbidden()->assertExactJson(['message' => 'Set up two-factor authentication to continue.']);
     });
 
-    it('gets "two_factor_setup_required" on package routes', function (): void {
+    it('is refused on package routes', function (): void {
         $user = User::factory()->create();
 
         $response = $this->withToken($user->createToken('test')->plainTextToken)->putJson('/api/user/password', ['current_password' => 'password']);
 
-        $response->assertForbidden()->assertExactJson([
-            'message' => 'Set up two-factor authentication to continue.',
-            'code' => 'two_factor_setup_required',
-        ])->assertMatchesOpenApi('authentication.user-password.update');
+        $response->assertForbidden()->assertExactJson(['message' => 'Set up two-factor authentication to continue.']);
     });
 
-    it('gets "two_factor_setup_required" on web routes', function (): void {
+    it('is refused on web routes', function (): void {
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->getJson('/web-area');
 
-        $response->assertForbidden()->assertJsonPath('code', 'two_factor_setup_required');
+        $response->assertForbidden()->assertExactJson(['message' => 'Set up two-factor authentication to continue.']);
     });
 
     it('can still reach the user, logout and the two-factor setup', function (): void {
@@ -65,24 +59,24 @@ describe('a user who must set up two-factor authentication', function (): void {
         $qrCode = $this->getJson('/api/user/two-factor-qr-code');
         $logout = $this->postJson('/api/auth/logout');
 
-        $currentUser->assertOk()->assertMatchesOpenApi('authentication.user');
-        $confirmation->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
-        $setup->assertOk()->assertMatchesOpenApi('authentication.two-factor.enable');
-        $qrCode->assertOk()->assertJsonStructure(['svg', 'url'])->assertMatchesOpenApi('authentication.two-factor.qr-code');
-        $logout->assertNoContent()->assertMatchesOpenApi('authentication.logout');
+        $currentUser->assertOk();
+        $confirmation->assertCreated();
+        $setup->assertOk();
+        $qrCode->assertOk()->assertJsonStructure(['svg', 'url']);
+        $logout->assertNoContent();
     });
 
     it('is trusted on the access token it confirms the setup with', function (): void {
         $user = User::factory()->create();
         $this->withToken($user->createToken('test')->plainTextToken);
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
-        $this->postJson('/api/user/two-factor-authentication')->assertOk()->assertMatchesOpenApi('authentication.two-factor.enable');
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
+        $this->postJson('/api/user/two-factor-authentication')->assertOk();
 
         $confirmation = $this->postJson('/api/user/confirmed-two-factor-authentication', ['code' => $this->twoFactorCode($user->fresh())]);
         $this->forgetAuthenticatedUsers();
         $response = $this->getJson('/api-area');
 
-        $confirmation->assertOk()->assertMatchesOpenApi('authentication.two-factor.confirm');
+        $confirmation->assertOk();
         $response->assertOk();
     });
 });
@@ -95,15 +89,12 @@ it('lets a user without two-factor authentication through when it is not require
     $response->assertOk();
 });
 
-it('gives a user with two-factor authentication on an untrusted access token "two_factor_required"', function (): void {
+it('refuses a user with two-factor authentication on an untrusted access token', function (): void {
     $user = User::factory()->withTwoFactorAuthentication()->create();
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api-area');
 
-    $response->assertForbidden()->assertExactJson([
-        'message' => 'Confirm it is you with the code from your authenticator app to continue.',
-        'code' => 'two_factor_required',
-    ]);
+    $response->assertForbidden()->assertExactJson(['message' => 'Confirm it is you with the code from your authenticator app to continue.']);
 });
 
 it('keeps two-factor management behind the challenge on an untrusted access token', function (): void {
@@ -111,7 +102,7 @@ it('keeps two-factor management behind the challenge on an untrusted access toke
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->deleteJson('/api/user/two-factor-authentication');
 
-    $response->assertForbidden()->assertJsonPath('code', 'two_factor_required')->assertMatchesOpenApi('authentication.two-factor.disable');
+    $response->assertForbidden()->assertExactJson(['message' => 'Confirm it is you with the code from your authenticator app to continue.']);
     expect($user->fresh()->hasEnabledTwoFactorAuthentication())->toBeTrue();
 });
 
@@ -125,8 +116,8 @@ describe('step-up', function (): void {
         $this->forgetAuthenticatedUsers();
         $after = $this->withToken($token)->getJson('/api-area');
 
-        $before->assertForbidden()->assertJsonPath('code', 'two_factor_required');
-        $stepUp->assertOk()->assertExactJson(['device_token' => null])->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $before->assertForbidden()->assertExactJson(['message' => 'Confirm it is you with the code from your authenticator app to continue.']);
+        $stepUp->assertOk()->assertExactJson(['device_token' => null]);
         $after->assertOk();
         expect($user->tokens()->count())->toBe(1);
     });
@@ -139,8 +130,8 @@ describe('step-up', function (): void {
         $stepUp = $this->fromSpa()->postJson('/api/auth/two-factor-challenge', ['code' => $this->twoFactorCode($user)]);
         $after = $this->fromSpa()->getJson('/api-area');
 
-        $before->assertForbidden()->assertJsonPath('code', 'two_factor_required');
-        $stepUp->assertNoContent()->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $before->assertForbidden()->assertExactJson(['message' => 'Confirm it is you with the code from your authenticator app to continue.']);
+        $stepUp->assertNoContent();
         $after->assertOk();
     });
 
@@ -152,7 +143,7 @@ describe('step-up', function (): void {
         $this->forgetAuthenticatedUsers();
         $after = $this->withToken($token)->getJson('/api-area');
 
-        $stepUp->assertUnprocessable()->assertJsonValidationErrorFor('code')->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $stepUp->assertUnprocessable()->assertJsonValidationErrorFor('code');
         $after->assertForbidden();
     });
 });

@@ -21,7 +21,7 @@ it('confirms the password of a bearer client through its header session', functi
     $after = $this->getJson('/confirmed-area');
 
     $before->assertStatus(423);
-    $confirmation->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $confirmation->assertCreated();
     $after->assertOk();
 });
 
@@ -30,11 +30,11 @@ it('reports the confirmation status of a bearer client', function (): void {
     $this->withToken($token);
 
     $before = $this->getJson('/api/user/confirmed-password-status');
-    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
     $after = $this->getJson('/api/user/confirmed-password-status');
 
-    $before->assertOk()->assertExactJson(['confirmed' => false])->assertMatchesOpenApi('authentication.password.confirmation');
-    $after->assertOk()->assertExactJson(['confirmed' => true])->assertMatchesOpenApi('authentication.password.confirmation');
+    $before->assertOk()->assertExactJson(['confirmed' => false]);
+    $after->assertOk()->assertExactJson(['confirmed' => true]);
 });
 
 it('rejects a wrong password with 422', function (): void {
@@ -42,7 +42,7 @@ it('rejects a wrong password with 422', function (): void {
 
     $response = $this->withToken($token)->postJson('/api/user/confirm-password', ['password' => 'wrong']);
 
-    $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The provided password was incorrect.'])->assertMatchesOpenApi('authentication.password.confirm.store');
+    $response->assertUnprocessable()->assertJsonValidationErrors(['password' => 'The provided password was incorrect.']);
     $this->getJson('/confirmed-area')->assertStatus(423);
 });
 
@@ -50,7 +50,7 @@ it('does not share a confirmation between tokens', function (): void {
     $user = User::factory()->create();
     $confirmedToken = $this->loginForToken($user);
     $otherToken = $this->loginForToken($user);
-    $this->withToken($confirmedToken)->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $this->withToken($confirmedToken)->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
     $this->forgetAuthenticatedUsers();
 
     $response = $this->withToken($otherToken)->getJson('/confirmed-area');

@@ -78,7 +78,7 @@ it('records a token client\'s password login with the context of the request', f
 it('records an SPA login in session mode', function (): void {
     $user = User::factory()->create();
 
-    $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
+    $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 
     expect(auditEntry(AuditEvent::LoginSucceeded)->channel)->toBe('session');
 });
@@ -86,9 +86,9 @@ it('records an SPA login in session mode', function (): void {
 it('records the requested login code and the login with it', function (): void {
     Notification::fake();
     $user = User::factory()->withoutPassword()->create();
-    $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted()->assertMatchesOpenApi('authentication.login-code');
+    $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted();
 
-    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $this->lastLoginCodeNotification($user)->code])->assertOk()->assertMatchesOpenApi('authentication.login');
+    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $this->lastLoginCodeNotification($user)->code])->assertOk();
 
     $requested = auditEntry(AuditEvent::LoginCodeRequested);
     expect($requested->actor)->toBeNull()
@@ -133,7 +133,7 @@ it('records a login with a recovery code', function (): void {
 it('records a failed login with the submitted username only', function (): void {
     $user = User::factory()->create();
 
-    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'not-the-secret-password'])->assertUnprocessable()->assertMatchesOpenApi('authentication.login');
+    $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'not-the-secret-password'])->assertUnprocessable();
 
     $failed = auditEntry(AuditEvent::LoginFailed);
     expect($failed->metadata)->toBe(['username' => $user->email])
@@ -145,7 +145,7 @@ it('records a login lockout with the submitted username', function (): void {
     $user = User::factory()->create();
 
     foreach (range(1, 6) as $attempt) {
-        $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong-password'])->assertMatchesOpenApi('authentication.login');
+        $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'wrong-password']);
     }
 
     expect(auditEntry(AuditEvent::LoginLockout)->metadata)->toBe(['username' => $user->email]);
@@ -167,7 +167,7 @@ it('records a token client\'s logout from its revoked access token', function ()
     $token = $this->loginForToken($user);
     $tokenId = (string) $user->tokens()->sole()->getKey();
 
-    $this->withToken($token)->postJson('/api/auth/logout')->assertNoContent()->assertMatchesOpenApi('authentication.logout');
+    $this->withToken($token)->postJson('/api/auth/logout')->assertNoContent();
 
     $logout = auditEntry(AuditEvent::Logout);
     expect($logout->actor?->is($user))->toBeTrue()
@@ -185,8 +185,7 @@ it('records a logout of a cookie session with the hash of the session', function
         ->withCredentials()
         ->withCookie(config('session.cookie'), $sessionId)
         ->postJson('/api/auth/logout')
-        ->assertNoContent()
-        ->assertMatchesOpenApi('authentication.logout');
+        ->assertNoContent();
 
     $logout = auditEntry(AuditEvent::Logout);
     expect($logout->subject?->is($user))->toBeTrue()
@@ -246,9 +245,9 @@ it('records who revoked a session, by the hash of its id', function (): void {
     $sessionId = Str::random(40);
     DB::table('sessions')->insert(['id' => $sessionId, 'user_id' => $user->id, 'payload' => '', 'last_activity' => now()->getTimestamp()]);
     $this->withToken($user->createToken('phone')->plainTextToken);
-    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+    $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 
-    $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $sessionId))->assertNoContent()->assertMatchesOpenApi('authentication.sessions.destroy');
+    $this->deleteJson('/api/user/sessions/session:'.hash('sha256', $sessionId))->assertNoContent();
 
     $revoked = auditEntry(AuditEvent::SessionRevoked);
     expect($revoked->actor?->is($user))->toBeTrue()

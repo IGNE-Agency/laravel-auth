@@ -35,10 +35,8 @@
         "laravel/sanctum": "^4.4"
     },
     "require-dev": {
-        "dedoc/scramble": "^0.13.48",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
-        "opis/json-schema": "^2.6",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^5.3",
         "pestphp/pest-plugin-laravel": "^5.0"

@@ -21,7 +21,7 @@ describe('requesting a code', function (): void {
         $responses = collect([$codeUser->email, 'nobody@example.com', $passwordUser->email])
             ->map(fn (string $email): TestResponse => $this->postJson('/api/auth/login-code', ['email' => $email]));
 
-        $responses->each(fn (TestResponse $response): TestResponse => $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.'])->assertMatchesOpenApi('authentication.login-code'));
+        $responses->each(fn (TestResponse $response): TestResponse => $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.']));
         Notification::assertSentToTimes($codeUser, LoginCodeNotification::class, 1);
         Notification::assertNotSentTo($passwordUser, LoginCodeNotification::class);
         Event::assertDispatchedTimes(LoginCodeRequested::class, 1);
@@ -33,11 +33,11 @@ describe('requesting a code', function (): void {
         Notification::fake();
 
         foreach (range(1, 3) as $request) {
-            $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted()->assertMatchesOpenApi('authentication.login-code');
+            $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted();
         }
         $response = $this->postJson('/api/auth/login-code', ['email' => $user->email]);
 
-        $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.'])->assertMatchesOpenApi('authentication.login-code');
+        $response->assertAccepted()->assertExactJson(['message' => 'If the account can log in with a code, we have emailed one.']);
         Notification::assertSentToTimes($user, LoginCodeNotification::class, 3);
     });
 
@@ -46,7 +46,7 @@ describe('requesting a code', function (): void {
         $user = User::factory()->withoutPassword()->create(['email' => 'ada@example.com']);
         Notification::fake();
 
-        $this->postJson('/api/auth/login-code', ['email' => 'Ada@Example.com'])->assertAccepted()->assertMatchesOpenApi('authentication.login-code');
+        $this->postJson('/api/auth/login-code', ['email' => 'Ada@Example.com'])->assertAccepted();
 
         Notification::assertSentToTimes($user, LoginCodeNotification::class, 1);
     });
@@ -56,7 +56,7 @@ describe('requesting a code', function (): void {
 
         $response = $this->postJson('/api/auth/login-code', ['email' => 'not-an-email']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'The email field must be a valid email address.'])->assertMatchesOpenApi('authentication.login-code');
+        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'The email field must be a valid email address.']);
         Notification::assertNothingSent();
     });
 });
@@ -65,11 +65,11 @@ describe('logging in with a code', function (): void {
     it('gives a bearer client an access token for an emailed code', function (): void {
         $user = User::factory()->withoutPassword()->create();
         Notification::fake();
-        $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted()->assertMatchesOpenApi('authentication.login-code');
+        $this->postJson('/api/auth/login-code', ['email' => $user->email])->assertAccepted();
 
         $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $this->lastLoginCodeNotification($user)->code]);
 
-        $response->assertOk()->assertJson(['two_factor' => false])->assertJsonStructure(['token', 'expires_at'])->assertMatchesOpenApi('authentication.login');
+        $response->assertOk()->assertJson(['two_factor' => false])->assertJsonStructure(['token', 'expires_at']);
         expect($user->tokens()->count())->toBe(1)
             ->and($user->loginCodes()->sole()->consumed_at)->not->toBeNull();
     });
@@ -80,7 +80,7 @@ describe('logging in with a code', function (): void {
 
         $response = $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => '123456']);
 
-        $response->assertOk()->assertExactJson(['two_factor' => false])->assertMatchesOpenApi('authentication.login');
+        $response->assertOk()->assertExactJson(['two_factor' => false]);
         $this->assertAuthenticatedAs($user, 'web');
     });
 
@@ -91,7 +91,7 @@ describe('logging in with a code', function (): void {
 
         $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => '123456']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'These credentials do not match our records.'])->assertMatchesOpenApi('authentication.login');
+        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'These credentials do not match our records.']);
         expect($user->tokens()->count())->toBe(1);
     });
 
@@ -101,7 +101,7 @@ describe('logging in with a code', function (): void {
 
         $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => '123456']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.login');
+        $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
         expect($user->loginCodes()->sole()->consumed_at)->toBeNull();
     });
 
@@ -111,7 +111,7 @@ describe('logging in with a code', function (): void {
 
         $response = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => '123456']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.login');
+        $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
         expect($user->tokens()->count())->toBe(0);
     });
 

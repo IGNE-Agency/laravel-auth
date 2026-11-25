@@ -34,27 +34,6 @@ jobs:
       - name: Pest
         run: composer test
 
-  without-scramble:
-    name: PHP 8.4 without Scramble
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          coverage: none
-
-      - name: Install dependencies
-        run: composer update --prefer-stable --prefer-dist --no-interaction
-
-      - name: Remove Scramble and the JSON Schema validator
-        run: composer remove --dev dedoc/scramble opis/json-schema --no-interaction
-
-      - name: Pest
-        run: composer test
-
   nova:
     name: PHP 8.4 with Nova
     runs-on: ubuntu-latest

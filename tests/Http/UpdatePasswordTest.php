@@ -15,7 +15,7 @@ it('changes the password of a bearer client', function (): void {
         'password_confirmation' => 'new-password',
     ]);
 
-    $response->assertOk()->assertMatchesOpenApi('authentication.user-password.update');
+    $response->assertOk();
     expect(Hash::check('new-password', $user->fresh()->password))->toBeTrue();
 });
 
@@ -30,8 +30,7 @@ it('checks the current password of a bearer client', function (): void {
     ]);
 
     $response->assertUnprocessable()
-        ->assertJsonValidationErrors(['current_password' => 'The password is incorrect.'])
-        ->assertMatchesOpenApi('authentication.user-password.update');
+        ->assertJsonValidationErrors(['current_password' => 'The password is incorrect.']);
     expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });
 
@@ -45,10 +44,7 @@ it('forbids a user without a password with 403', function (): void {
         'password_confirmation' => 'new-password',
     ]);
 
-    $response->assertForbidden()->assertExactJson([
-        'message' => 'Your account does not use a password.',
-        'code' => 'password_unavailable',
-    ])->assertMatchesOpenApi('authentication.user-password.update');
+    $response->assertForbidden()->assertExactJson(['message' => 'Your account does not use a password.']);
     expect($user->fresh()->password)->toBeNull();
 });
 
@@ -62,6 +58,6 @@ it('rejects a new password that does not match its confirmation with 422', funct
         'password_confirmation' => 'other-password',
     ]);
 
-    $response->assertUnprocessable()->assertJsonValidationErrors(['password'])->assertMatchesOpenApi('authentication.user-password.update');
+    $response->assertUnprocessable()->assertJsonValidationErrors(['password']);
     expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });

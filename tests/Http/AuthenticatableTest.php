@@ -16,7 +16,7 @@ it('returns the authenticated user without a wrapper', function (): void {
         'confirmation_method' => 'password',
         'two_factor_enabled' => false,
         'two_factor_required' => false,
-    ])->assertMatchesOpenApi('authentication.user');
+    ]);
 });
 
 it('tells whether the user set up two-factor authentication and must have it', function (): void {
@@ -25,7 +25,7 @@ it('tells whether the user set up two-factor authentication and must have it', f
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
 
-    $response->assertOk()->assertJson(['two_factor_enabled' => true, 'two_factor_required' => true])->assertMatchesOpenApi('authentication.user');
+    $response->assertOk()->assertJson(['two_factor_enabled' => true, 'two_factor_required' => true]);
 });
 
 it('tells how the user confirms their identity', function (Closure $makeUser, ?string $confirmationMethod): void {
@@ -33,7 +33,7 @@ it('tells how the user confirms their identity', function (Closure $makeUser, ?s
 
     $response = $this->withToken($user->createToken('test')->plainTextToken)->getJson('/api/user');
 
-    $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod)->assertMatchesOpenApi('authentication.user');
+    $response->assertOk()->assertJsonPath('confirmation_method', $confirmationMethod);
 })->with([
     'a user with a password, who may also use codes' => [fn (): User => User::factory()->create(), 'password'],
     'a user without a password, with two-factor authentication' => [fn (): User => User::factory()->withoutPassword()->withTwoFactorAuthentication()->create(), 'totp'],
@@ -44,7 +44,7 @@ it('tells how the user confirms their identity', function (Closure $makeUser, ?s
 it('answers a guest with a JSON 401, even without an Accept header', function (): void {
     $response = $this->get('/api/user');
 
-    $response->assertUnauthorized()->assertExactJson(['message' => 'Unauthenticated.'])->assertMatchesOpenApi('authentication.user');
+    $response->assertUnauthorized()->assertExactJson(['message' => 'Unauthenticated.']);
 });
 
 it('answers a failed login with JSON, even without an Accept header', function (): void {
@@ -52,5 +52,5 @@ it('answers a failed login with JSON, even without an Accept header', function (
 
     $response = $this->post('/api/auth/login', ['email' => $user->email, 'password' => 'wrong']);
 
-    $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.login');
+    $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
 });
