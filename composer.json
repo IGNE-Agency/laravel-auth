@@ -36,8 +36,6 @@
     },
     "require-dev": {
         "dedoc/scramble": "^0.13.48",
-        "igne-agency/laravel-error-contract": "*",
-        "igne-agency/laravel-api-docs": "*",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.20",
         "opis/json-schema": "^2.6",
@@ -77,22 +75,6 @@
             "pestphp/pest-plugin": true
         }
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../laravel-error-contract",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
-            "type": "path",
-            "url": "../laravel-api-docs",
-            "options": {
-                "symlink": true
-            }
-        }
-    ]
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

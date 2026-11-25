@@ -9,12 +9,20 @@ use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-// The rules that keep this package independent: it is plain Laravel, it throws its errors and it owns its routes.
-// What shapes the errors of an app and what documents its API adapt to that; the package knows neither.
+// The rules that keep this package independent: it is plain Laravel, it throws its errors and it owns the routes it
+// changes. What shapes the errors of an app and what documents its API adapt to that. The package knows neither,
+// not even as a development dependency.
 
 arch('the package uses no error package and no documentation tool')
     ->expect('Igne\Auth')
     ->not->toUse(['Dedoc\Scramble', 'Igne\ErrorContract', 'Igne\ApiDocs']);
+
+it('requires no error package and no API documentation package, for development either', function (): void {
+    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2).'/composer.json'), true);
+    $required = array_keys([...$composer['require'], ...$composer['require-dev']]);
+
+    expect(array_values(array_filter($required, fn (string $package): bool => str_starts_with($package, 'igne-agency/'))))->toBe([]);
+});
 
 arch('every error is a Symfony HTTP exception that does not render itself')
     ->expect(['Igne\Auth\Http\Exceptions', MissingTwoFactorAuthenticationException::class, TwoFactorRequiredException::class, TwoFactorSetupRequiredException::class])
