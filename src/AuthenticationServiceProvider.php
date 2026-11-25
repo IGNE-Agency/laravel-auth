@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Igne\Auth;
 
-use Dedoc\Scramble\Scramble;
 use Igne\Auth\Audit\Listeners\AuditEventSubscriber;
 use Igne\Auth\Audit\Models\AuditLog;
 use Igne\Auth\Authentication\Actions\ResetPassword;
@@ -21,7 +20,6 @@ use Igne\Auth\Http\Responses\TwoFactorLoginResponse;
 use Igne\Auth\LoginCodes\Http\Responses\LoginCodeRequestedResponse;
 use Igne\Auth\LoginCodes\Models\LoginCode;
 use Igne\Auth\Nova\NovaIntegration;
-use Igne\Auth\OpenApi\Scramble\ScrambleIntegration;
 use Igne\Auth\Sessions\HeaderSessionFactory;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
 use Igne\Auth\Tokens\Contracts\IssuesAccessTokens;
@@ -119,7 +117,6 @@ final class AuthenticationServiceProvider extends ServiceProvider
         $this->configureCommands();
         $this->configureSchedule();
         $this->configureNova();
-        $this->configureOpenApi();
     }
 
     private function configurePublishing(): void
@@ -369,19 +366,6 @@ final class AuthenticationServiceProvider extends ServiceProvider
         }
 
         $this->app->make(NovaIntegration::class)->boot();
-    }
-
-    /**
-     * Document the package routes in the app's Scramble spec, when the app
-     * uses Scramble.
-     */
-    private function configureOpenApi(): void
-    {
-        if (! class_exists(Scramble::class)) {
-            return;
-        }
-
-        $this->app->make(ScrambleIntegration::class)->boot();
     }
 
     private static function path(string $path): string

@@ -4,50 +4,18 @@ declare(strict_types=1);
 
 namespace Igne\Auth\Http\Exceptions;
 
-use Igne\Auth\Http\ErrorCode;
-use Illuminate\Contracts\Debug\ShouldntReport;
-use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use RuntimeException;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
- * The base of the package's exceptions. It renders as {message, code}.
+ * The base of the package's errors: a 403 the user can act on.
+ *
+ * The package only throws. It never renders an error: the exception handler
+ * of the app decides what the answer looks like, as for any other HTTP
+ * exception. Laravel's own handler answers {"message": ...} with the status;
+ * a handler that gives every error of the API one shape names the error after
+ * its class (TwoFactorRequiredException is "two_factor_required").
+ *
+ * So each error has a class of its own, built without arguments, with a
+ * message that is safe to show. The class name is public API.
  */
-abstract class AuthenticationException extends RuntimeException implements Responsable, ShouldntReport
-{
-    /**
-     * Get the stable error code of the exception.
-     */
-    abstract public function errorCode(): ErrorCode;
-
-    /**
-     * Get the HTTP status of the response.
-     */
-    public function status(): int
-    {
-        return Response::HTTP_FORBIDDEN;
-    }
-
-    /**
-     * Render the exception as a response.
-     *
-     * @param  Request  $request
-     */
-    public function toResponse($request): Response
-    {
-        return $this->toJsonResponse();
-    }
-
-    /**
-     * Render the exception as its {message, code} JSON response.
-     */
-    public function toJsonResponse(): JsonResponse
-    {
-        return new JsonResponse([
-            'message' => $this->getMessage(),
-            'code' => $this->errorCode()->value,
-        ], $this->status());
-    }
-}
+abstract class AuthenticationException extends AccessDeniedHttpException {}

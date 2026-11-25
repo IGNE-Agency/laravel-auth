@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Igne\Auth\Http\Controllers\AuthenticatableController;
 use Igne\Auth\Http\Controllers\NewPasswordController;
+use Igne\Auth\Http\Controllers\PasswordConfirmationController;
 use Igne\Auth\Http\Controllers\PasswordController;
+use Igne\Auth\Http\Controllers\PasswordResetLinkController;
+use Igne\Auth\Http\Controllers\SessionController;
 use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\LoginCodes\Http\Controllers\ConfirmationCodeController;
@@ -12,19 +15,13 @@ use Igne\Auth\LoginCodes\Http\Controllers\LoginCodeController;
 use Igne\Auth\Sessions\Http\Controllers\ActiveSessionController;
 use Igne\Auth\Sessions\Http\Controllers\TrustedDeviceController;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
+use Igne\Auth\TwoFactor\Http\Controllers\RecoveryCodeController;
+use Igne\Auth\TwoFactor\Http\Controllers\TwoFactorAuthenticationController;
+use Igne\Auth\TwoFactor\Http\Controllers\TwoFactorChallengeController;
+use Igne\Auth\TwoFactor\Http\Controllers\TwoFactorSecretController;
 use Igne\Auth\TwoFactor\Http\Middleware\PrepareTwoFactorStepUp;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
-use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
-use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
-use Laravel\Fortify\Http\Controllers\ConfirmedPasswordStatusController;
-use Laravel\Fortify\Http\Controllers\ConfirmedTwoFactorAuthenticationController;
-use Laravel\Fortify\Http\Controllers\PasswordResetLinkController;
-use Laravel\Fortify\Http\Controllers\RecoveryCodeController;
-use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
-use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController;
-use Laravel\Fortify\Http\Controllers\TwoFactorQrCodeController;
-use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,16 +29,16 @@ use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
 |--------------------------------------------------------------------------
 |
 | The provider loads this file with the configured prefix and middleware,
-| plus AcceptJson. The routes point at Fortify's own controllers, or at a thin
-| subclass that validates the input with a FormRequest first.
+| plus AcceptJson. Every route points at a controller of the package. Where
+| Fortify does the work, the controller hands the request over to Fortify's.
 |
 */
 
-Route::post('auth/login', [AuthenticatedSessionController::class, 'store'])
+Route::post('auth/login', [SessionController::class, 'store'])
     ->middleware(StartHeaderSession::class)
     ->name('authentication.login');
 
-Route::post('auth/logout', [AuthenticatedSessionController::class, 'destroy'])
+Route::post('auth/logout', [SessionController::class, 'destroy'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.logout');
 
@@ -50,7 +47,7 @@ Route::post('auth/login-code', [LoginCodeController::class, 'store'])
     ->name('authentication.login-code');
 
 if (Features::enabled(Features::twoFactorAuthentication())) {
-    Route::post('auth/two-factor-challenge', [TwoFactorAuthenticatedSessionController::class, 'store'])
+    Route::post('auth/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])
         ->middleware([StartHeaderSession::class, PrepareTwoFactorStepUp::class, 'throttle:authentication-two-factor'])
         ->name('authentication.two-factor.challenge');
 }
@@ -74,11 +71,11 @@ if (Features::enabled(Features::updatePasswords())) {
         ->name('authentication.user-password.update');
 }
 
-Route::post('user/confirm-password', [ConfirmablePasswordController::class, 'store'])
+Route::post('user/confirm-password', [PasswordConfirmationController::class, 'store'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.password.confirm.store');
 
-Route::get('user/confirmed-password-status', [ConfirmedPasswordStatusController::class, 'show'])
+Route::get('user/confirmed-password-status', [PasswordConfirmationController::class, 'show'])
     ->middleware([StartHeaderSession::class, 'auth:sanctum'])
     ->name('authentication.password.confirmation');
 
@@ -98,13 +95,13 @@ if (Features::enabled(Features::twoFactorAuthentication())) {
         Route::delete('user/two-factor-authentication', [TwoFactorAuthenticationController::class, 'destroy'])
             ->name('authentication.two-factor.disable');
 
-        Route::post('user/confirmed-two-factor-authentication', [ConfirmedTwoFactorAuthenticationController::class, 'store'])
+        Route::post('user/confirmed-two-factor-authentication', [TwoFactorAuthenticationController::class, 'confirm'])
             ->name('authentication.two-factor.confirm');
 
-        Route::get('user/two-factor-qr-code', [TwoFactorQrCodeController::class, 'show'])
+        Route::get('user/two-factor-qr-code', [TwoFactorSecretController::class, 'qrCode'])
             ->name('authentication.two-factor.qr-code');
 
-        Route::get('user/two-factor-secret-key', [TwoFactorSecretKeyController::class, 'show'])
+        Route::get('user/two-factor-secret-key', [TwoFactorSecretController::class, 'secretKey'])
             ->name('authentication.two-factor.secret-key');
 
         Route::get('user/two-factor-recovery-codes', [RecoveryCodeController::class, 'index'])
