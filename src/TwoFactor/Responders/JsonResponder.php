@@ -10,8 +10,8 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The default answer: 403 {message, code}, with the code
- * "two_factor_setup_required" or "two_factor_required".
+ * The default answer, for the API: the exception itself. It is thrown, so the
+ * exception handler of the app answers it like any other error.
  */
 final class JsonResponder implements RespondsToMissingTwoFactor
 {
@@ -22,6 +22,6 @@ final class JsonResponder implements RespondsToMissingTwoFactor
 
     public function toResponse(Request $request, MissingTwoFactorAuthenticationException $exception): Response
     {
-        return $exception->toJsonResponse();
+        throw $exception;
     }
 }

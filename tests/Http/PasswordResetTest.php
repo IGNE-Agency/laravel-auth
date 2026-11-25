@@ -18,7 +18,7 @@ describe('forgot password', function (): void {
         $responses = collect([$passwordUser->email, 'nobody@example.com', $passwordlessUser->email])
             ->map(fn (string $email): TestResponse => $this->postJson('/api/auth/forgot-password', ['email' => $email]));
 
-        $responses->each(fn (TestResponse $response): TestResponse => $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.'])->assertMatchesOpenApi('authentication.password.email'));
+        $responses->each(fn (TestResponse $response): TestResponse => $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.']));
         Notification::assertSentToTimes($passwordUser, ResetPasswordNotification::class, 1);
         Notification::assertNotSentTo($passwordlessUser, ResetPasswordNotification::class);
     });
@@ -26,11 +26,11 @@ describe('forgot password', function (): void {
     it('answers the same success when a password user asks again too soon', function (): void {
         Notification::fake();
         $user = User::factory()->create();
-        $this->postJson('/api/auth/forgot-password', ['email' => $user->email])->assertOk()->assertMatchesOpenApi('authentication.password.email');
+        $this->postJson('/api/auth/forgot-password', ['email' => $user->email])->assertOk();
 
         $response = $this->postJson('/api/auth/forgot-password', ['email' => $user->email]);
 
-        $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.'])->assertMatchesOpenApi('authentication.password.email');
+        $response->assertOk()->assertExactJson(['message' => 'We have emailed your password reset link.']);
         Notification::assertSentToTimes($user, ResetPasswordNotification::class, 1);
     });
 
@@ -39,7 +39,7 @@ describe('forgot password', function (): void {
 
         $response = $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email']);
 
-        $response->assertUnprocessable()->assertJsonValidationErrorFor('email')->assertMatchesOpenApi('authentication.password.email');
+        $response->assertUnprocessable()->assertJsonValidationErrorFor('email');
         Notification::assertNothingSent();
     });
 
@@ -47,11 +47,11 @@ describe('forgot password', function (): void {
         Notification::fake();
 
         foreach (range(1, 3) as $request) {
-            $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com'])->assertOk()->assertMatchesOpenApi('authentication.password.email');
+            $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com'])->assertOk();
         }
         $response = $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com']);
 
-        $response->assertTooManyRequests()->assertMatchesOpenApi('authentication.password.email');
+        $response->assertTooManyRequests();
     });
 });
 
@@ -67,7 +67,7 @@ describe('reset password', function (): void {
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertOk()->assertExactJson(['message' => 'Your password has been reset.'])->assertMatchesOpenApi('authentication.password.update');
+        $response->assertOk()->assertExactJson(['message' => 'Your password has been reset.']);
         expect(Hash::check('new-password', $user->fresh()->password))->toBeTrue();
     });
 
@@ -81,7 +81,7 @@ describe('reset password', function (): void {
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'This password reset token is invalid.'])->assertMatchesOpenApi('authentication.password.update');
+        $response->assertUnprocessable()->assertJsonValidationErrors(['email' => 'This password reset token is invalid.']);
         expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
     });
 });

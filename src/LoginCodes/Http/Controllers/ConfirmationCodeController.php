@@ -34,6 +34,13 @@ final class ConfirmationCodeController
     ) {}
 
     /**
+     * Request a confirmation code.
+     *
+     * Emails a one-time code to a user whose "confirmation_method" is "login_code". Confirm by sending it as
+     * "password" to POST /user/confirm-password.
+     *
+     * @response \Illuminate\Http\JsonResponse<array{message: string}, 202>
+     *
      * @throws LoginCodeUnavailableException
      */
     public function store(Request $request): JsonResponse

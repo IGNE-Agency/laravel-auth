@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Igne\Auth\Tests;
 
-use Dedoc\Scramble\ScrambleServiceProvider;
 use Igne\Auth\AuthenticationServiceProvider;
 use Igne\Auth\LoginCodes\Notifications\LoginCodeNotification;
 use Igne\Auth\Tests\Fixtures\User;
@@ -27,10 +26,10 @@ use PragmaRX\Google2FA\Google2FA;
 use ReflectionClass;
 
 /**
- * Runs the package on a bare Testbench app with Fortify, Sanctum, Scramble
- * (when installed) and a fixture user, in the provider order of a real app:
- * the package registers first. Testbench migrates every test's in-memory
- * database from defineDatabaseMigrations() and rolls it back afterwards.
+ * Runs the package on a bare Testbench app with Fortify, Sanctum and a
+ * fixture user, in the provider order of a real app: the package registers
+ * first. Testbench migrates every test's in-memory database from
+ * defineDatabaseMigrations() and rolls it back afterwards.
  */
 abstract class TestCase extends Orchestra
 {
@@ -44,7 +43,6 @@ abstract class TestCase extends Orchestra
             AuthenticationServiceProvider::class,
             FortifyServiceProvider::class,
             SanctumServiceProvider::class,
-            ...(class_exists(ScrambleServiceProvider::class) ? [ScrambleServiceProvider::class] : []),
         ];
     }
 
@@ -115,7 +113,6 @@ abstract class TestCase extends Orchestra
     {
         $token = $this->postJson('/api/auth/login', ['email' => $user->email, 'password' => $password, ...$input])
             ->assertOk()
-            ->assertMatchesOpenApi('authentication.login')
             ->json('token');
 
         $this->forgetAuthenticatedUsers();
@@ -158,7 +155,6 @@ abstract class TestCase extends Orchestra
             ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password', ...$input])
             ->assertOk()
             ->assertJson(['two_factor' => true])
-            ->assertMatchesOpenApi('authentication.login')
             ->json('challenge');
 
         $this->forgetAuthenticatedUsers();
@@ -167,16 +163,14 @@ abstract class TestCase extends Orchestra
     }
 
     /**
-     * Pass the two-factor challenge of a bearer-token client, and check the
-     * answer against the OpenAPI document.
+     * Pass the two-factor challenge of a bearer-token client.
      *
      * @param  array<string, mixed>  $input  the code, or a recovery code, and options
      */
     protected function passChallenge(string $challenge, array $input): TestResponse
     {
         $response = $this->withHeader('X-Auth-Challenge', $challenge)
-            ->postJson('/api/auth/two-factor-challenge', $input)
-            ->assertMatchesOpenApi('authentication.two-factor.challenge');
+            ->postJson('/api/auth/two-factor-challenge', $input);
 
         $this->flushHeaders();
         $this->forgetAuthenticatedUsers();

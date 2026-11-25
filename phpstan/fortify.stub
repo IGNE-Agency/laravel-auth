@@ -1,0 +1,27 @@
+<?php
+
+/*
+ * Fortify declares the rules of its requests as a plain array. The package's
+ * own requests extend these two and add to their rules, so the keys have to
+ * be known as what they are: the names of the inputs.
+ */
+
+namespace Laravel\Fortify\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class LoginRequest extends FormRequest
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules() {}
+}
+
+class TwoFactorLoginRequest extends FormRequest
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules() {}
+}

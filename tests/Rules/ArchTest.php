@@ -1,0 +1,72 @@
+<?php
+
+declare(strict_types=1);
+
+use Igne\Auth\TwoFactor\Exceptions\MissingTwoFactorAuthenticationException;
+use Igne\Auth\TwoFactor\Exceptions\TwoFactorRequiredException;
+use Igne\Auth\TwoFactor\Exceptions\TwoFactorSetupRequiredException;
+use Illuminate\Contracts\Support\Responsable;
+use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+
+// The rules that keep this package independent: it is plain Laravel, it throws its errors and it owns the routes it
+// changes. What shapes the errors of an app and what documents its API adapt to that. The package knows neither,
+// not even as a development dependency.
+
+arch('the package uses no error package and no documentation tool')
+    ->expect('Igne\Auth')
+    ->not->toUse(['Dedoc\Scramble', 'Igne\ErrorContract', 'Igne\ApiDocs']);
+
+it('requires no error package and no API documentation package, for development either', function (): void {
+    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2).'/composer.json'), true);
+    $required = array_keys([...$composer['require'], ...$composer['require-dev']]);
+
+    expect(array_values(array_filter($required, fn (string $package): bool => str_starts_with($package, 'igne-agency/'))))->toBe([]);
+});
+
+arch('every error is a Symfony HTTP exception that does not render itself')
+    ->expect(['Igne\Auth\Http\Exceptions', MissingTwoFactorAuthenticationException::class, TwoFactorRequiredException::class, TwoFactorSetupRequiredException::class])
+    ->toExtend(HttpException::class)
+    ->not->toImplement(Responsable::class)
+    ->not->toHaveMethod('render');
+
+it('keeps the name and the status of every error: both are public API', function (): void {
+    $errors = [];
+
+    foreach (glob(dirname(__DIR__, 2).'/src/{Http,TwoFactor}/Exceptions/*.php', GLOB_BRACE) ?: [] as $file) {
+        $class = 'Igne\\Auth\\'.str_replace('/', '\\', substr($file, strlen(dirname(__DIR__, 2).'/src/'), -4));
+        $reflection = new ReflectionClass($class);
+
+        if ($reflection->isInstantiable() && $reflection->isSubclassOf(HttpException::class)) {
+            $errors[$reflection->getShortName()] = $reflection->newInstance()->getStatusCode();
+        }
+    }
+
+    ksort($errors);
+
+    expect($errors)->toBe([
+        'CurrentSessionException' => 403,
+        'LoginCodeUnavailableException' => 403,
+        'PasswordUnavailableException' => 403,
+        'TwoFactorRequiredException' => 403,
+        'TwoFactorSetupRequiredException' => 403,
+    ]);
+});
+
+it('points every route at a controller of the package or of Fortify', function (): void {
+    $foreign = collect(Route::getRoutes()->getRoutes())
+        ->filter(fn ($route): bool => str_starts_with((string) $route->getName(), 'authentication.'))
+        ->reject(fn ($route): bool => str_starts_with(ltrim((string) $route->getControllerClass(), '\\'), 'Igne\\Auth\\') || str_starts_with(ltrim((string) $route->getControllerClass(), '\\'), 'Laravel\\Fortify\\'))
+        ->map(fn ($route): string => (string) $route->getName())
+        ->values();
+
+    expect($foreign->all())->toBe([]);
+});
+
+it('owns the routes whose request or answer it changes', function (): void {
+    // Token mode, device trust and login codes add inputs and answers to these two that Fortify's own request and
+    // controller do not declare. Every other Fortify route, logout included, points at Fortify.
+    foreach (['authentication.login', 'authentication.two-factor.challenge'] as $name) {
+        expect(ltrim((string) Route::getRoutes()->getByName($name)?->getControllerClass(), '\\'))->toStartWith('Igne\\Auth\\');
+    }
+});

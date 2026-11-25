@@ -208,21 +208,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OpenAPI
-    |--------------------------------------------------------------------------
-    |
-    | The session cookie name in the generated OpenAPI document. Null uses
-    | "session.cookie", which usually derives from APP_NAME. Pin it when the
-    | document is committed, so every environment generates the same one.
-    |
-    */
-
-    'openapi' => [
-        'session_cookie' => null,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Schedule
     |--------------------------------------------------------------------------
     |

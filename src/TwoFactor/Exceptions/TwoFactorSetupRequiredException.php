@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Igne\Auth\TwoFactor\Exceptions;
 
-use Igne\Auth\Http\ErrorCode;
-
 /**
  * The user must set up two-factor authentication before they can continue.
  */
@@ -14,10 +12,5 @@ final class TwoFactorSetupRequiredException extends MissingTwoFactorAuthenticati
     public function __construct()
     {
         parent::__construct(__('authentication::messages.two_factor_setup_required'));
-    }
-
-    public function errorCode(): ErrorCode
-    {
-        return ErrorCode::TwoFactorSetupRequired;
     }
 }

@@ -19,8 +19,8 @@ describe('session mode', function (): void {
         $challenge = $this->fromSpa()->postJson('/api/auth/two-factor-challenge', ['code' => $this->twoFactorCode($user)]);
         $response = $this->fromSpa()->getJson('/protected-area');
 
-        $login->assertOk()->assertExactJson(['two_factor' => true])->assertMatchesOpenApi('authentication.login');
-        $challenge->assertNoContent()->assertCookieMissing('two_factor_device')->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $login->assertOk()->assertExactJson(['two_factor' => true]);
+        $challenge->assertNoContent()->assertCookieMissing('two_factor_device');
         $response->assertOk();
         expect(TrustedDevice::count())->toBe(0);
     });
@@ -28,12 +28,12 @@ describe('session mode', function (): void {
     it('remembers the device for 30 days with remember_device', function (): void {
         $this->freezeSecond();
         $user = User::factory()->withTwoFactorAuthentication()->create();
-        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
+        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 
         $response = $this->fromSpa()->postJson('/api/auth/two-factor-challenge', ['code' => $this->twoFactorCode($user), 'remember_device' => true]);
 
         $device = TrustedDevice::sole();
-        $response->assertNoContent()->assertCookie('two_factor_device')->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $response->assertNoContent()->assertCookie('two_factor_device');
         expect($response->getCookie('two_factor_device')->getValue())->toStartWith($device->id.'|')
             ->and($response->getCookie('two_factor_device')->getExpiresTime())->toBe(now()->addDays(30)->getTimestamp())
             ->and($device->remembered)->toBeTrue()
@@ -45,12 +45,12 @@ describe('session mode', function (): void {
         $this->freezeSecond();
         config(['authentication.two_factor.device_trust.expires_in_days' => 7]);
         $user = User::factory()->withTwoFactorAuthentication()->create();
-        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
+        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 
         $response = $this->fromSpa()->postJson('/api/auth/two-factor-challenge', ['code' => $this->twoFactorCode($user)]);
 
         $device = TrustedDevice::sole();
-        $response->assertNoContent()->assertCookie('two_factor_device')->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $response->assertNoContent()->assertCookie('two_factor_device');
         expect($device->remembered)->toBeFalse()
             ->and($device->expires_at->equalTo(now()->addDays(7)))->toBeTrue();
     });
@@ -64,7 +64,7 @@ describe('session mode', function (): void {
             ->withCookie('two_factor_device', $device->id.'|device-secret')
             ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertOk()->assertExactJson(['two_factor' => false])->assertMatchesOpenApi('authentication.login');
+        $response->assertOk()->assertExactJson(['two_factor' => false]);
         $this->assertAuthenticatedAs($user, 'web');
     });
 });
@@ -100,7 +100,7 @@ describe('token mode', function (): void {
         $protected = $this->withToken((string) $login->json('token'))->getJson('/protected-area');
 
         expect($deviceToken)->toStartWith(TrustedDevice::sole()->id.'|');
-        $login->assertOk()->assertJson(['two_factor' => false])->assertMatchesOpenApi('authentication.login');
+        $login->assertOk()->assertJson(['two_factor' => false]);
         $protected->assertOk();
     });
 
@@ -163,7 +163,7 @@ describe('trusted devices', function (): void {
         $this->forgetAuthenticatedUsers();
         $protected = $this->withToken((string) $login->json('token'))->getJson('/protected-area');
 
-        $login->assertOk()->assertJson(['two_factor' => false])->assertMatchesOpenApi('authentication.login');
+        $login->assertOk()->assertJson(['two_factor' => false]);
         $protected->assertOk();
     });
 
@@ -173,7 +173,7 @@ describe('trusted devices', function (): void {
         $response = $this->withHeader('X-Two-Factor-Device', $deviceToken($user))
             ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertOk()->assertJson(['two_factor' => true])->assertMatchesOpenApi('authentication.login');
+        $response->assertOk()->assertJson(['two_factor' => true]);
     })->with([
         'an expired device' => [fn (User $user): string => TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->expired()->create()->id.'|device-secret'],
         'a device verified more than 365 days ago' => [fn (User $user): string => TrustedDevice::factory()->for($user, 'authenticatable')->withSecret('device-secret')->create(['verified_at' => now()->subDays(366)])->id.'|device-secret'],
@@ -222,7 +222,7 @@ describe('trusted devices', function (): void {
             'remember_device' => $rememberDevice,
         ])->json('token');
 
-        $this->withToken($token)->postJson('/api/auth/logout')->assertNoContent()->assertMatchesOpenApi('authentication.logout');
+        $this->withToken($token)->postJson('/api/auth/logout')->assertNoContent();
 
         expect(TrustedDevice::count())->toBe($devicesLeft)
             ->and(TrustedDevice::whereNotNull('access_token_id')->count())->toBe(0);
@@ -244,11 +244,11 @@ describe('trusted devices', function (): void {
 
     it('trusts only the session after a recovery code in session mode', function (): void {
         $user = User::factory()->withTwoFactorAuthentication()->create();
-        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->assertMatchesOpenApi('authentication.login');
+        $this->fromSpa()->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
 
         $response = $this->fromSpa()->postJson('/api/auth/two-factor-challenge', ['recovery_code' => $this->recoveryCode($user), 'remember_device' => true]);
 
-        $response->assertNoContent()->assertCookieMissing('two_factor_device')->assertMatchesOpenApi('authentication.two-factor.challenge');
+        $response->assertNoContent()->assertCookieMissing('two_factor_device');
         expect(TrustedDevice::count())->toBe(0);
         $this->fromSpa()->getJson('/protected-area')->assertOk();
     });

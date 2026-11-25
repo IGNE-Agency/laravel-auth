@@ -46,7 +46,7 @@ it('lists the user\'s own trusted devices and marks the one the request comes fr
             'expires_at' => null,
             'is_current' => true,
         ],
-    ]])->assertMatchesOpenApi('authentication.devices.index');
+    ]]);
 });
 
 it('marks the remembered device whose device token the request sends', function (): void {
@@ -57,11 +57,11 @@ it('marks the remembered device whose device token the request sends', function 
         ->withHeader('X-Two-Factor-Device', $device->id.'|device-secret')
         ->getJson('/api/user/devices');
 
-    $response->assertOk()->assertJsonPath('data.0.id', $device->id)->assertJsonPath('data.0.is_current', true)->assertMatchesOpenApi('authentication.devices.index');
+    $response->assertOk()->assertJsonPath('data.0.id', $device->id)->assertJsonPath('data.0.is_current', true);
 });
 
 it('returns 401 to a guest', function (): void {
-    $this->getJson('/api/user/devices')->assertUnauthorized()->assertMatchesOpenApi('authentication.devices.index');
+    $this->getJson('/api/user/devices')->assertUnauthorized();
 });
 
 describe('revoking a device', function (): void {
@@ -74,11 +74,11 @@ describe('revoking a device', function (): void {
         Event::fake([DeviceTrustRevoked::class]);
         $device = TrustedDevice::factory()->for($this->user, 'authenticatable')->create();
         $otherDevice = TrustedDevice::factory()->for($this->user, 'authenticatable')->create();
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 
         $response = $this->deleteJson("/api/user/devices/{$device->id}");
 
-        $response->assertNoContent()->assertMatchesOpenApi('authentication.devices.destroy');
+        $response->assertNoContent();
         $this->assertModelMissing($device);
         $this->assertModelExists($otherDevice);
         Event::assertDispatched(DeviceTrustRevoked::class, fn (DeviceTrustRevoked $event): bool => $event->deviceId === $device->id && $event->reason === 'revoked');
@@ -89,17 +89,17 @@ describe('revoking a device', function (): void {
 
         $response = $this->deleteJson("/api/user/devices/{$device->id}");
 
-        $response->assertStatus(423)->assertMatchesOpenApi('authentication.devices.destroy');
+        $response->assertStatus(423);
         $this->assertModelExists($device);
     });
 
     it('returns 404 for a device of another user', function (): void {
         $device = TrustedDevice::factory()->for(User::factory(), 'authenticatable')->create();
-        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated()->assertMatchesOpenApi('authentication.password.confirm.store');
+        $this->postJson('/api/user/confirm-password', ['password' => 'password'])->assertCreated();
 
         $response = $this->deleteJson("/api/user/devices/{$device->id}");
 
-        $response->assertNotFound()->assertJsonPath('message', 'Not Found')->assertMatchesOpenApi('authentication.devices.destroy');
+        $response->assertNotFound()->assertJsonPath('message', 'Not Found');
         $this->assertModelExists($device);
     });
 });

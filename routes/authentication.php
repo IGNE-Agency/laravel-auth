@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Igne\Auth\Http\Controllers\AuthenticatableController;
 use Igne\Auth\Http\Controllers\NewPasswordController;
 use Igne\Auth\Http\Controllers\PasswordController;
+use Igne\Auth\Http\Controllers\SessionController;
 use Igne\Auth\Http\Middleware\ConcealPasswordResetOutcome;
 use Igne\Auth\Http\Middleware\EnsurePasswordAuthenticatable;
 use Igne\Auth\LoginCodes\Http\Controllers\ConfirmationCodeController;
@@ -12,6 +13,7 @@ use Igne\Auth\LoginCodes\Http\Controllers\LoginCodeController;
 use Igne\Auth\Sessions\Http\Controllers\ActiveSessionController;
 use Igne\Auth\Sessions\Http\Controllers\TrustedDeviceController;
 use Igne\Auth\Sessions\Http\Middleware\StartHeaderSession;
+use Igne\Auth\TwoFactor\Http\Controllers\TwoFactorChallengeController;
 use Igne\Auth\TwoFactor\Http\Middleware\PrepareTwoFactorStepUp;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -21,7 +23,6 @@ use Laravel\Fortify\Http\Controllers\ConfirmedPasswordStatusController;
 use Laravel\Fortify\Http\Controllers\ConfirmedTwoFactorAuthenticationController;
 use Laravel\Fortify\Http\Controllers\PasswordResetLinkController;
 use Laravel\Fortify\Http\Controllers\RecoveryCodeController;
-use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController;
 use Laravel\Fortify\Http\Controllers\TwoFactorQrCodeController;
 use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
@@ -32,12 +33,14 @@ use Laravel\Fortify\Http\Controllers\TwoFactorSecretKeyController;
 |--------------------------------------------------------------------------
 |
 | The provider loads this file with the configured prefix and middleware,
-| plus AcceptJson. The routes point at Fortify's own controllers, or at a thin
-| subclass that validates the input with a FormRequest first.
+| plus AcceptJson. A route points at Fortify's own controller where the
+| package changes nothing about its request and its answer. Where the package
+| adds to them (login and the two-factor challenge), the route has a
+| controller of the package, which hands the request over to Fortify's.
 |
 */
 
-Route::post('auth/login', [AuthenticatedSessionController::class, 'store'])
+Route::post('auth/login', [SessionController::class, 'store'])
     ->middleware(StartHeaderSession::class)
     ->name('authentication.login');
 
@@ -50,7 +53,7 @@ Route::post('auth/login-code', [LoginCodeController::class, 'store'])
     ->name('authentication.login-code');
 
 if (Features::enabled(Features::twoFactorAuthentication())) {
-    Route::post('auth/two-factor-challenge', [TwoFactorAuthenticatedSessionController::class, 'store'])
+    Route::post('auth/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])
         ->middleware([StartHeaderSession::class, PrepareTwoFactorStepUp::class, 'throttle:authentication-two-factor'])
         ->name('authentication.two-factor.challenge');
 }

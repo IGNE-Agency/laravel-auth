@@ -1,6 +1,6 @@
 # Development
 
-The package runs on its own, on Orchestra Testbench with Fortify, Sanctum and Scramble:
+The package runs on its own, on Orchestra Testbench with Fortify and Sanctum:
 
 ```bash
 composer install
@@ -9,14 +9,13 @@ composer analyse   # Larastan, level max on src and tests/Fixtures, without the 
 composer test      # Pest
 ```
 
-`tests/TestCase.php` configures the app the suite needs: an in-memory SQLite database, array cache, session and mail, and the fixture user in `tests/Fixtures`. Without Scramble or `opis/json-schema` installed, the snapshot test is skipped and `assertMatchesOpenApi` asserts nothing; CI runs the suite that way too. [OpenAPI](openapi.md#in-this-package) explains the snapshot and the assertion.
+`tests/TestCase.php` configures the app the suite needs: an in-memory SQLite database, array cache, session and mail, and the fixture user in `tests/Fixtures`.
 
 ## CI
 
-CI (`.github/workflows/ci.yml`) runs three jobs on pull requests and pushes to `main`:
+CI (`.github/workflows/ci.yml`) runs two jobs on pull requests and pushes to `main`:
 
 - `checks`: Pint, Larastan and Pest, on the lowest and the newest dependencies the constraints allow;
-- `without-scramble`: Pest after removing Scramble and `opis/json-schema`, so the package also works without them;
 - `nova`: Larastan with `phpstan-nova.neon.dist` and the tests in `tests/Nova`, with Nova installed through the `COMPOSER_AUTH` secret (skipped without it).
 
 ## Run the Nova checks locally
