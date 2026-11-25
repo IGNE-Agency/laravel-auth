@@ -82,14 +82,14 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../laravel-problem-details",
+            "url": "../laravel-error-contract",
             "options": {
                 "symlink": true
             }
         },
         {
             "type": "path",
-            "url": "../laravel-scramble-extensions",
+            "url": "../laravel-api-docs",
             "options": {
                 "symlink": true
             }
